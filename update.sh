@@ -10,9 +10,9 @@ fi
 versions=( "${versions[@]%/}" )
 
 get_part() {
-	dir="$1"
+	local dir="$1"
 	shift
-	part="$1"
+	local part="$1"
 	shift
 	if [ -f "$dir/$part" ]; then
 		cat "$dir/$part"
