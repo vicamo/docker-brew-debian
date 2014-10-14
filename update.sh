@@ -29,6 +29,33 @@ get_part() {
 	return 1
 }
 
+docker_build() {
+	local dir="$1"
+	shift
+	local version="$1"
+	shift
+	local suite="$1"
+	shift
+
+	docker build -t "${repo}:${suite}" "$dir"
+	if [ "$suite" != "$version" ]; then
+		docker tag "${repo}:${suite}" "${repo}:${version}"
+	fi
+	if [ "$latest" == "$version" ]; then
+		docker tag "${repo}:${latest}" "${repo}:latest"
+	fi
+	docker run -it --rm "${repo}:${suite}" bash -xc '
+		cat /etc/apt/sources.list
+		echo
+		cat /etc/os-release 2>/dev/null
+		echo
+		cat /etc/lsb-release 2>/dev/null
+		echo
+		cat /etc/debian_version 2>/dev/null
+		true
+	'
+}
+
 repo="$(get_part . repo '')"
 if [ "$repo" ]; then
 	if [[ "$repo" != */* ]]; then
@@ -41,7 +68,19 @@ fi
 
 latest="$(get_part . latest '')"
 
+scratches=()
+cascaded=()
 for version in "${versions[@]}"; do
+	dir="$(readlink -f "$version")"
+	from="$(cat $dir/Dockerfile | awk '/^FROM / { print $2 }')"
+	if [[ x"$from" != xscratch ]]; then
+		cascaded+=( $version )
+	else
+		scratches+=( $version )
+	fi
+done
+
+for version in "${scratches[@]}"; do
 	dir="$(readlink -f "$version")"
 	variant="$(get_part "$dir" variant 'minbase')"
 	components="$(get_part "$dir" components 'main')"
@@ -74,22 +113,15 @@ for version in "${versions[@]}"; do
 	sudo chown -R "$(id -u):$(id -g)" "$dir"
 	
 	if [ "$repo" ]; then
-		docker build -t "${repo}:${suite}" "$dir"
-		if [ "$suite" != "$version" ]; then
-			docker tag "${repo}:${suite}" "${repo}:${version}"
-		fi
-		if [ "$latest" == "$version" ]; then
-			docker tag "${repo}:${latest}" "${repo}:latest"
-		fi
-		docker run -it --rm "${repo}:${suite}" bash -xc '
-			cat /etc/apt/sources.list
-			echo
-			cat /etc/os-release 2>/dev/null
-			echo
-			cat /etc/lsb-release 2>/dev/null
-			echo
-			cat /etc/debian_version 2>/dev/null
-			true
-		'
+		docker_build "$dir" "$version" "$suite"
 	fi
 done
+
+if [ "$repo" ]; then
+	for version in "${cascaded[@]}"; do
+		dir="$(readlink -f "$version")"
+		suite="$(get_part "$dir" suite "$version")"
+
+		docker_build "$dir" "$version" "$suite"
+	done
+fi
