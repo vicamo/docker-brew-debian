@@ -17,36 +17,48 @@ cd "$(dirname "$(readlink -f "$BASH_SOURCE")")"
 
 versions=( */ )
 versions=( "${versions[@]%/}" )
+for version in "${versions[@]}"; do
+	arches=( $version/*/ )
+	arches=( "${arches[@]%/}" )
+	arches=( "${arches[@]#$version/}" )
+	eval arches_$version=\( ${arches[@]} \)
+done
+
 url='git://github.com/tianon/docker-brew-debian'
 
 echo '# maintainer: Tianon Gravi <admwiggin@gmail.com> (@tianon)'
 
 for version in "${versions[@]}"; do
-	commit="$(git log -1 --format='format:%H' "$version")"
-	versionAliases=()
-	if [ -z "${noVersion[$version]}" ]; then
-		fullVersion="$(tar -xvf "$version/rootfs.tar.xz" etc/debian_version --to-stdout 2>/dev/null)"
-		if [ -z "$fullVersion" ] || [[ "$fullVersion" == */sid ]]; then
-			fullVersion="$(eval "$(tar -xvf "$version/rootfs.tar.xz" etc/os-release --to-stdout 2>/dev/null)" && echo "$VERSION" | cut -d' ' -f1)"
-			if [ -z "$fullVersion" ]; then
-				# lucid...
-				fullVersion="$(eval "$(tar -xvf "$version/rootfs.tar.xz" etc/lsb-release --to-stdout 2>/dev/null)" && echo "$DISTRIB_DESCRIPTION" | cut -d' ' -f2)" # DISTRIB_DESCRIPTION="Ubuntu 10.04.4 LTS"
+	eval arches=\( \${arches_${version}[@]} \)
+	for arch in "${arches[@]}"; do
+		dir="$version/$arch"
+		commit="$(git log -1 --format='format:%H' "$dir")"
+		versionAliases=()
+		if [ -z "${noVersion[$version]}" ]; then
+			fullVersion="$(tar -xvf "$dir/rootfs.tar.xz" etc/debian_version --to-stdout 2>/dev/null)"
+			if [ -z "$fullVersion" ] || [[ "$fullVersion" == */sid ]]; then
+				fullVersion="$(eval "$(tar -xvf "$dir/rootfs.tar.xz" etc/os-release --to-stdout 2>/dev/null)" && echo "$VERSION" | cut -d' ' -f1)"
+				if [ -z "$fullVersion" ]; then
+					# lucid...
+					fullVersion="$(eval "$(tar -xvf "$dir/rootfs.tar.xz" etc/lsb-release --to-stdout 2>/dev/null)" && echo "$DISTRIB_DESCRIPTION" | cut -d' ' -f2)" # DISTRIB_DESCRIPTION="Ubuntu 10.04.4 LTS"
+				fi
+			else
+				while [ "${fullVersion%.*}" != "$fullVersion" ]; do
+					versionAliases+=( $fullVersion )
+					fullVersion="${fullVersion%.*}"
+				done
 			fi
-		else
-			while [ "${fullVersion%.*}" != "$fullVersion" ]; do
+			if [ "$fullVersion" != "$version" ]; then
 				versionAliases+=( $fullVersion )
-				fullVersion="${fullVersion%.*}"
-			done
+			fi
 		fi
-		if [ "$fullVersion" != "$version" ]; then
-			versionAliases+=( $fullVersion )
-		fi
-	fi
-	versionAliases+=( $version $(cat "$version/suite" 2>/dev/null || true) ${aliases[$version]} )
+		versionAliases+=( $version $(cat "$dir/suite" 2>/dev/null || true) ${aliases[$version]} )
 	
-	echo
-	for va in "${versionAliases[@]}"; do
-		echo "$va: ${url}@${commit} $version"
+		echo
+		for va in "${versionAliases[@]}"; do
+			echo "$va: ${url}@${commit} $version-$arch"
+			[ "$arch" == "amd64" ] && echo "$va: ${url}@${commit} $version"
+		done
 	done
 done
 
