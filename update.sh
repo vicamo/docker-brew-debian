@@ -39,6 +39,8 @@ if [ "$repo" ]; then
 	fi
 fi
 
+latest="$(get_part . latest '')"
+
 for version in "${versions[@]}"; do
 	dir="$(readlink -f "$version")"
 	variant="$(get_part "$dir" variant 'minbase')"
@@ -76,6 +78,9 @@ for version in "${versions[@]}"; do
 		if [ "$suite" != "$version" ]; then
 			docker tag "${repo}:${suite}" "${repo}:${version}"
 		fi
+		if [ "$latest" == "$version" ]; then
+			docker tag "${repo}:${latest}" "${repo}:latest"
+		fi
 		docker run -it --rm "${repo}:${suite}" bash -xc '
 			cat /etc/apt/sources.list
 			echo
@@ -88,8 +93,3 @@ for version in "${versions[@]}"; do
 		'
 	fi
 done
-
-latest="$(get_part . latest '')"
-if [ "$latest" ]; then
-	docker tag "${repo}:${latest}" "${repo}:latest"
-fi
