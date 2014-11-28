@@ -58,6 +58,17 @@ docker_build() {
 	'
 }
 
+: ${sudo:=sudo}
+declare -a envs
+# contrib/mkimage.sh
+envs+=(TMPDIR)
+# contrib/mkimage/debootstrap
+envs+=(DEBOOTSTRAP DONT_TOUCH_SOURCES_LIST)
+for var in "${envs[@]}"; do
+	eval value=\$$var
+	[ -z "$value" ] || sudo="$sudo $var=$value"
+done
+
 repo="$(get_part . repo '')"
 if [ "$repo" ]; then
 	if [[ "$repo" != */* ]]; then
@@ -144,7 +155,7 @@ for task in "${scratches[@]}"; do
 	suite="$(get_part "$dir" suite "$version")"
 	mirror="$(get_part "$dir" mirror '')"
 	script="$(get_part "$dir" script '')"
-	
+
 	args=( -d "$dir" debootstrap --arch="$arch" )
 	[ -z "$variant" ] || args+=( --variant="$variant" )
 	[ -z "$components" ] || args+=( --components="$components" )
@@ -156,18 +167,18 @@ for task in "${scratches[@]}"; do
 			args+=( "$script" )
 		fi
 	fi
-	
+
 	mkimage="$(readlink -f "${MKIMAGE:-"mkimage.sh"}")"
 	{
 		echo "$(basename "$mkimage") ${args[*]/"$dir"/.}"
 		echo
 		echo 'https://github.com/docker/docker/blob/master/contrib/mkimage.sh'
 	} > "$dir/build-command.txt"
-	
-	sudo nice ionice -c 3 "$mkimage" "${args[@]}" 2>&1 | tee "$dir/build.log"
-	
-	sudo chown -R "$(id -u):$(id -g)" "$dir"
-	
+
+	$sudo nice ionice -c 3 "$mkimage" "${args[@]}" 2>&1 | tee "$dir/build.log"
+
+	$sudo chown -R "$(id -u):$(id -g)" "$dir"
+
 	if [ "$repo" ]; then
 		docker_build "$dir" "$version" "$arch" "$suite"
 	fi
