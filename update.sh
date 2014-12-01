@@ -154,7 +154,10 @@ for version in "${versions[@]}"; do
 		dir="$(readlink -f "$version/$arch")"
 
 		skip="$(get_part "$dir" skip '')"
-		[ -z "$skip" ] || (echo "Skipping $version/$arch, reason: $skip"; continue)
+		if [ -n "$skip" ]; then
+			echo "Skipping $version/$arch, reason: $skip"
+			continue
+		fi
 
 		from="$(cat $dir/Dockerfile | awk '/^FROM / { print $2 }')"
 		if [[ x"$from" != xscratch ]]; then
