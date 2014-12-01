@@ -23,6 +23,27 @@ get_part() {
 	return 1
 }
 
+docker_if_exist() {
+	local found=`docker images | awk '{ print $1 ":" $2; }' | grep "^$1$"`
+	[ -n "$found" ] && return 0 || return 1
+}
+
+docker_tag_if_not_exist() {
+	local orig="$1"
+	shift
+	local new="$1"
+	shift
+	docker_if_exist "$new" || docker tag "$orig" "$new"
+}
+
+docker_build_if_not_exist() {
+	local tag="$1"
+	shift
+	local dir="$1"
+	shift
+	docker_if_exist "$tag" || docker build -t "$tag" "$dir"
+}
+
 docker_build() {
 	local dir="$1"
 	shift
@@ -36,15 +57,15 @@ docker_build() {
 	local isDefaultArch=
 	[ "$arch" == "amd64" ] && isDefaultArch="yes"
 
-	docker build -t "${repo}:${suite}-${arch}" "$dir"
-	[ -n "$isDefaultArch" ] && docker tag "${repo}:${suite}-${arch}" "${repo}:${suite}"
+	docker_build_if_not_exist "${repo}:${suite}-${arch}" "$dir"
+	[ -n "$isDefaultArch" ] && docker_tag_if_not_exist "${repo}:${suite}-${arch}" "${repo}:${suite}"
 	if [ "$suite" != "$version" ]; then
-		docker tag "${repo}:${suite}-${arch}" "${repo}:${version}-${arch}"
-		[ -n "$isDefaultArch" ] && docker tag "${repo}:${suite}-${arch}" "${repo}:${version}"
+		docker_tag_if_not_exist "${repo}:${suite}-${arch}" "${repo}:${version}-${arch}"
+		[ -n "$isDefaultArch" ] && docker_tag_if_not_exist "${repo}:${suite}-${arch}" "${repo}:${version}"
 	fi
 	if [ "$latest" == "$version" ]; then
-		docker tag "${repo}:${latest}-${arch}" "${repo}:latest-${arch}"
-		[ -n "$isDefaultArch" ] && docker tag "${repo}:${latest}-${arch}" "${repo}:latest"
+		docker_tag_if_not_exist "${repo}:${latest}-${arch}" "${repo}:latest-${arch}"
+		[ -n "$isDefaultArch" ] && docker_tag_if_not_exist "${repo}:${latest}-${arch}" "${repo}:latest"
 	fi
 	docker run -it --rm "${repo}:${suite}-${arch}" bash -xc '
 		cat /etc/apt/sources.list
@@ -147,37 +168,39 @@ done
 for task in "${scratches[@]}"; do
 	version=$(echo $task | cut -d / -f 1)
 	arch=$(echo $task | cut -d / -f 2)
-
 	dir="$(readlink -f "$task")"
-	variant="$(get_part "$dir" variant 'minbase')"
-	components="$(get_part "$dir" components 'main')"
-	include="$(get_part "$dir" include '')"
 	suite="$(get_part "$dir" suite "$version")"
-	mirror="$(get_part "$dir" mirror '')"
-	script="$(get_part "$dir" script '')"
 
-	args=( -d "$dir" debootstrap --arch="$arch" )
-	[ -z "$variant" ] || args+=( --variant="$variant" )
-	[ -z "$components" ] || args+=( --components="$components" )
-	[ -z "$include" ] || args+=( --include="$include" )
-	args+=( "$suite" )
-	if [ "$mirror" ]; then
-		args+=( "$mirror" )
-		if [ "$script" ]; then
-			args+=( "$script" )
+	if [ ! -f "$dir/build.log" ]; then
+		variant="$(get_part "$dir" variant 'minbase')"
+		components="$(get_part "$dir" components 'main')"
+		include="$(get_part "$dir" include '')"
+		mirror="$(get_part "$dir" mirror '')"
+		script="$(get_part "$dir" script '')"
+
+		args=( -d "$dir" debootstrap --arch="$arch" )
+		[ -z "$variant" ] || args+=( --variant="$variant" )
+		[ -z "$components" ] || args+=( --components="$components" )
+		[ -z "$include" ] || args+=( --include="$include" )
+		args+=( "$suite" )
+		if [ "$mirror" ]; then
+			args+=( "$mirror" )
+			if [ "$script" ]; then
+				args+=( "$script" )
+			fi
 		fi
+
+		mkimage="$(readlink -f "${MKIMAGE:-"mkimage.sh"}")"
+		{
+			echo "$(basename "$mkimage") ${args[*]/"$dir"/.}"
+			echo
+			echo 'https://github.com/docker/docker/blob/master/contrib/mkimage.sh'
+		} > "$dir/build-command.txt"
+
+		$sudo nice ionice -c 3 "$mkimage" "${args[@]}" 2>&1 | tee "$dir/build.log"
+
+		$sudo chown -R "$(id -u):$(id -g)" "$dir"
 	fi
-
-	mkimage="$(readlink -f "${MKIMAGE:-"mkimage.sh"}")"
-	{
-		echo "$(basename "$mkimage") ${args[*]/"$dir"/.}"
-		echo
-		echo 'https://github.com/docker/docker/blob/master/contrib/mkimage.sh'
-	} > "$dir/build-command.txt"
-
-	$sudo nice ionice -c 3 "$mkimage" "${args[@]}" 2>&1 | tee "$dir/build.log"
-
-	$sudo chown -R "$(id -u):$(id -g)" "$dir"
 
 	if [ "$repo" ]; then
 		docker_build "$dir" "$version" "$arch" "$suite"
