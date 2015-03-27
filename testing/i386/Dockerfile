@@ -1,3 +1,3 @@
-FROM debian:jessie-i386
+FROM vicamo/debian:jessie-i386
 
 RUN sed -i 's/jessie/testing/; s/testing-lts/jessie-lts/' /etc/apt/sources.list

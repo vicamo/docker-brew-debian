@@ -1,3 +1,3 @@
-FROM debian:sid-amd64
+FROM vicamo/debian:sid-amd64
 
 RUN sed -i 's/sid/unstable/' /etc/apt/sources.list
