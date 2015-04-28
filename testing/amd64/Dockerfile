@@ -1,3 +1,3 @@
-FROM vicamo/debian:jessie-amd64
+FROM vicamo/debian:stretch-amd64
 
-RUN sed -i 's/jessie/testing/; s/testing-lts/jessie-lts/' /etc/apt/sources.list
+RUN sed -i 's/stretch/testing/' /etc/apt/sources.list

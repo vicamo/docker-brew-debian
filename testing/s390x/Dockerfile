@@ -1,3 +1,3 @@
-FROM vicamo/debian:jessie-s390x
+FROM vicamo/debian:stretch-s390x
 
-RUN sed -i 's/jessie/testing/; s/testing-lts/jessie-lts/' /etc/apt/sources.list
+RUN sed -i 's/stretch/testing/' /etc/apt/sources.list

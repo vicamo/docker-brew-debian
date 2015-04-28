@@ -1,3 +1,3 @@
-FROM vicamo/debian:squeeze-mipsel
+FROM vicamo/debian:wheezy-mipsel
 
-RUN sed -i 's/squeeze/oldstable/; s/oldstable-lts/squeeze-lts/' /etc/apt/sources.list
+RUN sed -i 's/wheezy/oldstable/' /etc/apt/sources.list
