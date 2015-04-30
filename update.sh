@@ -206,7 +206,7 @@ for task in "${scratches[@]}"; do
 	fi
 
 	if [ "$repo" ]; then
-		docker_build "$dir" "$version" "$arch" "$suite"
+		( set -x && docker_build "$dir" "$version" "$arch" "$suite" )
 	fi
 done
 
@@ -218,6 +218,6 @@ if [ "$repo" ]; then
 		dir="$(readlink -f "$task")"
 		suite="$(get_part "$dir" suite "$version")"
 
-		docker_build "$dir" "$version" "$arch" "$suite"
+		( set -x && docker_build "$dir" "$version" "$arch" "$suite" )
 	done
 fi
