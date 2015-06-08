@@ -187,8 +187,7 @@ for task in "${scratches[@]}"; do
 		[ -z "$components" ] || args+=( --components="$components" )
 		[ -z "$include" ] || args+=( --include="$include" )
 
-		debootstrapVersion="$(debootstrap --version)"
-		debootstrapVersion="${debootstrapVersion##* }"
+		debootstrapVersion="$(dpkg-query -W -f '${Version}' debootstrap)"
 		if dpkg --compare-versions "$debootstrapVersion" '>=' '1.0.69'; then
 			args+=( --force-check-gpg )
 		fi
