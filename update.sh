@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set -eo pipefail
 
 cd "$(readlink -f "$(dirname "$BASH_SOURCE")")"
 
@@ -77,6 +77,7 @@ docker_build() {
 		cat /etc/debian_version 2>/dev/null
 		true
 	'
+	docker run --rm "${repo}:${suite}" dpkg-query -f '${Package}\t${Version}\n' -W > "$dir/build.manifest"
 }
 
 : ${sudo:=sudo}
@@ -185,6 +186,13 @@ for task in "${scratches[@]}"; do
 		[ -z "$variant" ] || args+=( --variant="$variant" )
 		[ -z "$components" ] || args+=( --components="$components" )
 		[ -z "$include" ] || args+=( --include="$include" )
+
+		debootstrapVersion="$(debootstrap --version)"
+		debootstrapVersion="${debootstrapVersion##* }"
+		if dpkg --compare-versions "$debootstrapVersion" '>=' '1.0.69'; then
+			args+=( --force-check-gpg )
+		fi
+
 		args+=( "$suite" )
 		if [ "$mirror" ]; then
 			args+=( "$mirror" )
