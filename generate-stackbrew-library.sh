@@ -69,8 +69,8 @@ for version in "${versions[@]}"; do
 	
 		echo
 		for va in "${versionAliases[@]}"; do
-			echo "$va: ${url}@${commit} $version-$arch"
-			[ "$arch" == "amd64" ] && echo "$va: ${url}@${commit} $version"
+			echo "$va: ${url}@${commit} $dir"
+			[ "$arch" == "amd64" ] && echo "$va: ${url}@${commit} $dir"
 		done
 	done
 done
