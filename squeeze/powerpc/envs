@@ -1,0 +1,1 @@
+DEBOOTSTRAP=/usr/sbin/qemu-debootstrap DONT_TOUCH_SOURCES_LIST=1
