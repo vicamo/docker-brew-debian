@@ -72,6 +72,12 @@ for version in "${versions[@]}"; do
 			echo "$va: ${url}@${commit} $dir"
 			[ "$arch" == "amd64" ] && echo "$va: ${url}@${commit} $dir"
 		done
+
+		if [ -s "$dir/backports/Dockerfile" ]; then
+			echo
+			echo "$version-backports-$arch: ${url}@${commit} $dir/backports"
+			[ "$arch" == "amd64" ] && echo "$version-backports: ${url}@${commit} $dir/backports"
+		fi
 	done
 done
 
