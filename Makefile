@@ -8,9 +8,9 @@ endif
 
 LATEST := $(shell cat latest)
 
-DOCKER_REPO := $(shell cat repo)
-DOCKER_USER := $(shell docker info | awk '/^Username:/ { print $$2 }')
 DOCKER ?= docker
+DOCKER_REPO := $(shell cat repo)
+DOCKER_USER := $(shell $(DOCKER) info | awk '/^Username:/ { print $$2 }')
 SUDO ?= sudo
 MKIMAGE ?= mkimage.sh
 MKIMAGE := $(shell readlink -f $(MKIMAGE))
@@ -115,7 +115,7 @@ endef
 
 define do-docker-build
 @echo "$@ <= docker building $(PRIVATE_PATH)";
-$(hide) if [ -n "$(FORCE)" -o -z "$$(docker inspect $(DOCKER_USER)/$(DOCKER_REPO):$(PRIVATE_TARGET) 2>/dev/null | grep Created)" ]; then \
+$(hide) if [ -n "$(FORCE)" -o -z "$$($(DOCKER) inspect $(DOCKER_USER)/$(DOCKER_REPO):$(PRIVATE_TARGET) 2>/dev/null | grep Created)" ]; then \
   $(DOCKER) build -t $(DOCKER_USER)/$(DOCKER_REPO):$(PRIVATE_TARGET) $(PRIVATE_PATH); \
   $(DOCKER) run --rm "$(DOCKER_USER)/$(DOCKER_REPO):$(PRIVATE_TARGET)" bash -xc ' \
     cat /etc/apt/sources.list; \
