@@ -70,6 +70,7 @@ endef
 
 define do-rootfs-tarball
 @echo "$@ <= building";
+$(hide) [ ! -d "$(@D)/rootfs" ] || $(SUDO) rm -rf "$(@D)/rootfs";
 $(hide) args=( -d "$(@D)" debootstrap --arch="$(PRIVATE_ARCH)" ); \
 $(if $(PRIVATE_VARIANT),args+=( --variant="$(PRIVATE_VARIANT)" );) \
 $(if $(PRIVATE_COMPONENTS),args+=( --components="$(PRIVATE_COMPONENTS)" );) \
