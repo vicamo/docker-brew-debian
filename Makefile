@@ -80,6 +80,7 @@ $(if $(PRIVATE_MIRROR), \
   args+=( "$(PRIVATE_MIRROR)" ); \
   $(if $(PRIVATE_SCRIPT),args+=( "$(PRIVATE_SCRIPT)" );)) \
 $(SUDO) $(PRIVATE_ENVS) nice ionice -c 3 "$(MKIMAGE)" "$${args[@]}" 2>&1 | tee "$(@D)/build.log"; \
+[ -f "$@" ] || exit 1; \
 { \
   echo "$$(basename "$(MKIMAGE)") $${args[*]/"$(@D)"/.}"; \
   echo; \
