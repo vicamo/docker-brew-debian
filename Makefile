@@ -201,7 +201,7 @@ all:
 
 $(foreach f,$(shell find . -type f -name Dockerfile | cut -d/ -f2-), \
   $(eval path := $(patsubst %/Dockerfile,%,$(f))) \
-  $(if $(wildcard $(path)/skip), \
+  $(if $(if $(NO_SKIP),,$(wildcard $(path)/skip)), \
     $(info Skipping $(path): $(shell cat $(path)/skip)), \
     $(eval $(call define-target-from-path,$(path))) \
   ) \
