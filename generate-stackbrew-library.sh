@@ -32,28 +32,35 @@ cat <<-'EOH'
 # maintainer: Paul Tagliamonte <paultag@debian.org> (@paultag)
 EOH
 
-commitRange='master..dist'
-commitCount="$(git rev-list "$commitRange" --count 2>/dev/null || true)"
-if [ "$commitCount" ] && [ "$commitCount" -gt 0 ]; then
-	echo
-	echo '# commits:' "($commitRange)"
-	git log --format=format:'- %h %s%n%w(0,2,2)%b' "$commitRange" | sed 's/^/#  /'
-fi
+branches=( master dist-stable dist-unstable )
+
+for branch in "${branches[@]}"; do
+	if [ "$branch" = 'master' ]; then
+		continue
+	fi
+	commitRange="master..$branch"
+	commitCount="$(git rev-list "$commitRange" --count 2>/dev/null || true)"
+	if [ "$commitCount" ] && [ "$commitCount" -gt 0 ]; then
+		echo
+		echo '# commits:' "($commitRange)"
+		git log --format=format:'- %h %s%n%w(0,2,2)%b' "$commitRange" | sed 's/^/#  /'
+	fi
+done
 
 for version in "${versions[@]}"; do
 	eval arches=\( \${arches_${version}[@]} \)
 	for arch in "${arches[@]}"; do
 		dir="$version/$arch"
-		commit="$(git log -1 --format='format:%H' -- "$dir")"
+		tarball="$dir/rootfs.tar.xz"
+		commit="$(git log -1 --format='format:%H' "${branches[@]}" -- "$tarball")"
 		versionAliases=()
 		if [ -z "${noVersion[$version]}" ]; then
-			tarball="$dir/rootfs.tar.xz"
-			fullVersion="$(tar -xvf "$tarball" etc/debian_version --to-stdout 2>/dev/null)"
+			fullVersion="$(git show "$commit:$tarball" | tar -xvJ etc/debian_version --to-stdout 2>/dev/null || true)"
 			if [ -z "$fullVersion" ] || [[ "$fullVersion" == */sid ]]; then
-				fullVersion="$(eval "$(tar -xvf "$tarball" etc/os-release --to-stdout 2>/dev/null)" && echo "$VERSION" | cut -d' ' -f1)"
+				fullVersion="$(eval "$(git show "$commit:$tarball" | tar -xvJ etc/os-release --to-stdout 2>/dev/null || true)" && echo "$VERSION" | cut -d' ' -f1)"
 				if [ -z "$fullVersion" ]; then
 					# lucid...
-					fullVersion="$(eval "$(tar -xvf "$tarball" etc/lsb-release --to-stdout 2>/dev/null)" && echo "$DISTRIB_DESCRIPTION" | cut -d' ' -f2)" # DISTRIB_DESCRIPTION="Ubuntu 10.04.4 LTS"
+					fullVersion="$(eval "$(git show "$commit:$tarball" | tar -xvJ etc/lsb-release --to-stdout 2>/dev/null || true)" && echo "$DISTRIB_DESCRIPTION" | cut -d' ' -f2)" # DISTRIB_DESCRIPTION="Ubuntu 10.04.4 LTS"
 				fi
 			else
 				while [ "${fullVersion%.*}" != "$fullVersion" ]; do
@@ -65,7 +72,7 @@ for version in "${versions[@]}"; do
 				versionAliases+=( $fullVersion )
 			fi
 		fi
-		versionAliases+=( $version $(cat "$dir/suite" 2>/dev/null || true) ${aliases[$version]} )
+		versionAliases+=( $version $(git show "$commit:$dir/suite" 2>/dev/null || true) ${aliases[$version]} )
 	
 		echo
 		for va in "${versionAliases[@]}"; do
@@ -73,7 +80,7 @@ for version in "${versions[@]}"; do
 			[ "$arch" == "amd64" ] && echo "$va: ${url}@${commit} $dir"
 		done
 
-		if [ -s "$dir/backports/Dockerfile" ]; then
+		if [ "$(git show "$commit:$dir/backports/Dockerfile" 2>/dev/null || true)" ]; then
 			echo
 			echo "$version-backports-$arch: ${url}@${commit} $dir/backports"
 			[ "$arch" == "amd64" ] && echo "$version-backports: ${url}@${commit} $dir/backports"
