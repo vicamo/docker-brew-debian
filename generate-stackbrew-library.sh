@@ -32,7 +32,7 @@ cat <<-'EOH'
 # maintainer: Paul Tagliamonte <paultag@debian.org> (@paultag)
 EOH
 
-branches=( master dist-stable dist-unstable )
+branches=( master dist )
 
 for branch in "${branches[@]}"; do
 	if [ "$branch" = 'master' ]; then
