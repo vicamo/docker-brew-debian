@@ -7,6 +7,10 @@ else
 endif
 
 LATEST := $(shell cat latest)
+ALIAS_oldstable := wheezy
+ALIAS_stable := jessie
+ALIAS_testing := stretch
+ALIAS_unstable := sid
 
 DOCKER ?= docker
 DOCKER_REPO := $(shell cat repo)
@@ -34,6 +38,11 @@ endef
 # $(1): relative directory path, e.g. "jessie/amd64"
 define suite-name-from-path
 $(word 1,$(subst /, ,$(1)))
+endef
+
+# $(1): jessie or stable
+define alias-name-from-suite
+$(if $(ALIAS_$(1)),$(ALIAS_$(1)),$(1))
 endef
 
 # $(1): relative directory path, e.g. "jessie/amd64"
@@ -250,6 +259,7 @@ all: $(target)
 $(suite): $(target)
 $(arch): $(target)
 $(if $(func),$(func): $(target))
+all-$(call alias-name-from-suite,$(suite))-$(arch): $(target)
 $(target):
 	@echo "$$@ done"
 
