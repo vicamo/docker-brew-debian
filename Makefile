@@ -14,7 +14,7 @@ ALIAS_unstable := sid
 
 DOCKER ?= docker
 DOCKER_REPO := $(shell cat repo)
-DOCKER_USER := $(shell $(DOCKER) info | awk '/^Username:/ { print $$2 }')
+DOCKER_USER ?= $(shell $(DOCKER) info | awk '/^Username:/ { print $$2 }')
 SUDO ?= sudo
 MKIMAGE ?= mkimage.sh
 MKIMAGE := $(shell readlink -f $(MKIMAGE))
@@ -139,7 +139,7 @@ $(hide) dpkgCfgFile="$(@D)/rootfs/etc/dpkg/dpkg.cfg.d/docker"; \
     echo '# This is the "slim" variant of the Debian base image.'; \
     echo '# Many files which are normally unnecessary in containers are excluded,'; \
     echo '# and this configuration file keeps them that way.'; \
-  } | $(SUDO) tee -a "$$dpkgCfgFile"; \
+  } | $(SUDO) tee -a "$$dpkgCfgFile" >/dev/null; \
   neverExclude='/usr/share/doc/*/copyright'; \
   for slimExclude in "$(PRIVATE_SLIM_EXCLUDES)"; do \
     { \
@@ -151,7 +151,7 @@ $(hide) dpkgCfgFile="$(@D)/rootfs/etc/dpkg/dpkg.cfg.d/docker"; \
         echo "$$dpkgOutput"; \
       fi | fold -w 76 -s | sed 's/^/#  /'; \
       echo "path-exclude $$slimExclude"; \
-    } | $(SUDO) tee -a "$$dpkgCfgFile"; \
+    } | $(SUDO) tee -a "$$dpkgCfgFile" >/dev/null; \
     if [[ "$$slimExclude" == *'/*' ]]; then \
       if [ -d "$(@D)/rootfs/$$(dirname "$$slimExclude")" ]; then \
         $(SUDO) chroot "$(@D)/rootfs" \
@@ -165,7 +165,8 @@ $(hide) dpkgCfgFile="$(@D)/rootfs/etc/dpkg/dpkg.cfg.d/docker"; \
     echo; \
     echo '# always include these files, especially for license compliance'; \
     echo "path-include $$neverExclude"; \
-  } | $(SUDO) tee -a "$$dpkgCfgFile"
+  } | $(SUDO) tee -a "$$dpkgCfgFile" >/dev/null; \
+  cat "$$dpkgCfgFile"
 $(hide) $(SUDO) tar --numeric-owner --create --auto-compress --file "$@" --directory "$(@D)/rootfs" --transform='s,^./,,' .
 $(hide) $(SUDO) chown -R "$$(id -u):$$(id -g)" "$(@D)";
 
