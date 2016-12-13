@@ -47,6 +47,12 @@ define alias-name-from-suite
 $(if $(ALIAS_$(1)),$(ALIAS_$(1)),$(1))
 endef
 
+# $(1): suite
+# $(2): arch
+define suite-arch-target-name
+all-$(call alias-name-from-suite,$(1))-$(2)
+endef
+
 # $(1): relative directory path, e.g. "jessie/amd64"
 define arch-name-from-path
 $(word 2,$(subst /, ,$(1)))
@@ -256,13 +262,15 @@ $(eval target := $(call target-name-from-path,$(1)))
 $(eval suite := $(call suite-name-from-path,$(1)))
 $(eval arch := $(call arch-name-from-path,$(1)))
 $(eval func := $(call func-name-from-path,$(1)))
+$(eval suite_arch_target := $(call suite-arch-target-name,$(suite),$(arch)))
+$(eval ALL_SUITE_ARCH_TARGETS := $(sort $(ALL_SUITE_ARCH_TARGETS) $(suite_arch_target)))
 
 .PHONY: $(target) $(suite) $(arch) $(func)
 all: $(target)
 $(suite): $(target)
 $(arch): $(target)
 $(if $(func),$(func): $(target))
-all-$(call alias-name-from-suite,$(suite))-$(arch): $(target)
+$(suite_arch_target): $(target)
 $(target):
 	@echo "$$@ done"
 
@@ -274,8 +282,16 @@ $(if $(strip $(call enumerate-additional-tags-for,$(suite),$(arch),$(func))), \
 
 endef
 
-all:
+all: .travis.yml
 	@echo "Build $(DOCKER_USER)/$(DOCKER_REPO) done"
+
+.PHONY: .travis.yml
+.travis.yml:
+	$(hide) TMP_TRAVIS=$$(mktemp); \
+	travisEnv=; \
+	$(foreach t,$(patsubst all-%,%,$(ALL_SUITE_ARCH_TARGETS)),travisEnv+='\n  - VARIANT=$(t)';) \
+	awk -v 'RS=\n\n' '($$1 == "env:") { $$0 = substr($$0, 0, index($$0, "matrix:") + length("matrix:")) "'"$$travisEnv"'" } { printf "%s%s", $$0, RS }' "$@" > "$${TMP_TRAVIS}"; \
+	(diff -q "$@" "$${TMP_TRAVIS}" >/dev/null && rm -f "$${TMP_TRAVIS}") || mv "$${TMP_TRAVIS}" "$@"
 
 $(foreach f,$(shell find . -type f -name Dockerfile | cut -d/ -f2-), \
   $(eval path := $(patsubst %/Dockerfile,%,$(f))) \
