@@ -104,17 +104,19 @@ for version in "${versions[@]}"; do
 			Directory: $dir
 		EOE
 
-		if [ "$(git show "$commit:$dir/backports/Dockerfile" 2>/dev/null || true)" ]; then
-			versionBackportsAliases=( $version-backports-$arch )
-			[ "$arch" == "amd64" ] && versionBackportsAliases+=( $version-backports )
-			echo
-			cat <<-EOE
-				Tags: $(join ', ' "${versionBackportsAliases[@]}")
-				GitFetch: refs/heads/$branch
-				GitCommit: $commit
-				Directory: $dir/backports
-			EOE
-		fi
+		for imageVariant in slim backports; do
+			if [ "$(git show "$commit:$dir/$imageVariant/Dockerfile" 2>/dev/null || true)" ]; then
+				imageVariantAliases=( $version-$imageVariant-$arch )
+				[ "$arch" == "amd64" ] && imageVariantAliases+=( $version-$imageVariant )
+				echo
+				cat <<-EOE
+					Tags: $(join ', ' "${imageVariantAliases[@]}")
+					GitFetch: refs/heads/$branch
+					GitCommit: $commit
+					Directory: $dir/$imageVariant
+				EOE
+			fi
+		done
 	done
 done
 

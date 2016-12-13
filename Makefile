@@ -71,7 +71,7 @@ endef
 define do-rootfs-tarball
 @echo "$@ <= building";
 $(hide) [ ! -d "$(@D)/rootfs" ] || $(SUDO) rm -rf "$(@D)/rootfs";
-$(hide) args=( -d "$(@D)" debootstrap --arch="$(PRIVATE_ARCH)" ); \
+$(hide) args=( --dir "$(@D)" --compression 'xz' debootstrap --arch="$(PRIVATE_ARCH)" ); \
 $(if $(PRIVATE_VARIANT),args+=( --variant="$(PRIVATE_VARIANT)" );) \
 $(if $(PRIVATE_COMPONENTS),args+=( --components="$(PRIVATE_COMPONENTS)" );) \
 $(if $(PRIVATE_INCLUDE),args+=( --include="$(PRIVATE_INCLUDE)" );) \
@@ -88,7 +88,7 @@ $(SUDO) $(PRIVATE_ENVS) nice ionice -c 3 "$(MKIMAGE)" "$${args[@]}" 2>&1 | tee "
   echo; \
   echo 'https://github.com/docker/docker/blob/master/contrib/mkimage.sh'; \
 } > $(@D)/build-command.txt;
-$(hide) $(SUDO) $(PRIVATE_ENVS) chown -R "$$(id -u):$$(id -g)" "$(@D)";
+$(hide) $(SUDO) chown -R "$$(id -u):$$(id -g)" "$(@D)";
 
 endef
 
@@ -112,6 +112,69 @@ $(1)/rootfs.tar.xz: PRIVATE_ENVS := $(call get-part,$(1),envs)
 $(1)/rootfs.tar.xz: PRIVATE_MERGED_USR := $(call get-part,$(1),merged-usr)
 $(1)/rootfs.tar.xz:
 	$$(call do-rootfs-tarball)
+
+docker-build-$(2): $(1)/rootfs.tar.xz
+
+endef
+
+define do-slim-rootfs-tarball
+@echo "$@ <= building";
+$(hide) [ ! -d "$(@D)/rootfs" ] || $(SUDO) rm -rf "$(@D)/rootfs";
+$(hide) mkdir -p "$(@D)/rootfs";
+$(hide) $(SUDO) tar --extract --file "$<" --directory "$(@D)/rootfs";
+$(hide) dpkgCfgFile="$(@D)/rootfs/etc/dpkg/dpkg.cfg.d/docker"; \
+  $(SUDO) mkdir -p "$$(dirname "$$dpkgCfgFile")"; \
+  { \
+    echo '# This is the "slim" variant of the Debian base image.'; \
+    echo '# Many files which are normally unnecessary in containers are excluded,'; \
+    echo '# and this configuration file keeps them that way.'; \
+  } | $(SUDO) tee -a "$$dpkgCfgFile"; \
+  neverExclude='/usr/share/doc/*/copyright'; \
+  for slimExclude in "$(PRIVATE_SLIM_EXCLUDES)"; do \
+    { \
+      echo; \
+      echo "# dpkg -S '$$slimExclude'"; \
+      if dpkgOutput="$$($(SUDO) chroot "$(@D)/rootfs" dpkg -S "$$slimExclude" 2>&1)"; then \
+        echo "$$dpkgOutput" | sed 's/: .*//g; s/, /\n/g' | sort -u | xargs; \
+      else \
+        echo "$$dpkgOutput"; \
+      fi | fold -w 76 -s | sed 's/^/#  /'; \
+      echo "path-exclude $$slimExclude"; \
+    } | $(SUDO) tee -a "$$dpkgCfgFile"; \
+    if [[ "$$slimExclude" == *'/*' ]]; then \
+      if [ -d "$(@D)/rootfs/$$(dirname "$$slimExclude")" ]; then \
+        $(SUDO) chroot "$(@D)/rootfs" \
+          find "$$(dirname "$$slimExclude")" -mindepth 1 -not -path "$$neverExclude" -not -type d -delete; \
+	$(SUDO) chroot "$(@D)/rootfs" \
+          find "$$(dirname "$$slimExclude")" -mindepth 1 -empty -delete; \
+      fi; \
+    fi; \
+  done; \
+  { \
+    echo; \
+    echo '# always include these files, especially for license compliance'; \
+    echo "path-include $$neverExclude"; \
+  } | $(SUDO) tee -a "$$dpkgCfgFile"
+$(hide) $(SUDO) tar --numeric-owner --create --auto-compress --file "$@" --directory "$(@D)/rootfs" --transform='s,^./,,' .
+$(hide) $(SUDO) chown -R "$$(id -u):$$(id -g)" "$(@D)";
+
+endef
+
+# $(1): relative directory path, e.g. "jessie/amd64", "jessie/amd64/scm"
+# $(2): target name, e.g. jessie-amd64-scm
+# $(3): suite name, e.g. jessie
+# $(4): arch name, e.g. amd64
+# $(5): func name, e.g. scm
+define define-build-slim-rootfs-tarball-target
+$(2): $(1)/rootfs.tar.xz
+$(1)/rootfs.tar.xz: PRIVATE_TARGET := $(2)
+$(1)/rootfs.tar.xz: PRIVATE_PATH := $(1)
+$(1)/rootfs.tar.xz: PRIVATE_SUITE := $(3)
+$(1)/rootfs.tar.xz: PRIVATE_ARCH := $(4)
+$(1)/rootfs.tar.xz: PRIVATE_ENVS := $(call get-part,$(1),envs)
+$(1)/rootfs.tar.xz: PRIVATE_SLIM_EXCLUDES := $(call get-part,$(1),slim-excludes)
+$(1)/rootfs.tar.xz: $(dir $(1))rootfs.tar.xz
+	$$(call do-slim-rootfs-tarball)
 
 docker-build-$(2): $(1)/rootfs.tar.xz
 
@@ -191,7 +254,7 @@ $(target):
 	@echo "$$@ done"
 
 $(if $(filter scratch,$(call base-image-from-path,$(1))), \
-  $(call define-build-rootfs-tarball-target,$(1),$(target),$(suite),$(arch),$(func)))
+  $(call define-build-$(if $(func),$(func)-)rootfs-tarball-target,$(1),$(target),$(suite),$(arch),$(func)))
 $(call define-docker-build-target,$(1),$(target),$(suite),$(arch),$(func))
 $(if $(strip $(call enumerate-additional-tags-for,$(suite),$(arch),$(func))), \
   $(call define-docker-tag-target,$(1),$(target),$(suite),$(arch),$(func)))
