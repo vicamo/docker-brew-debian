@@ -22,6 +22,8 @@ MKIMAGE := $(shell readlink -f $(MKIMAGE))
 DEBOOTSTRAP_VERSION := $(shell dpkg-query -W -f '$${Version}' debootstrap)
 DEBOOTSTRAP_ARGS_COMMON := \
   $(if $(shell dpkg --compare-versions "$$debootstrapVersion" '>=' '1.0.69' && echo true),--force-check-gpg)
+DEBOOTSTRAP_ARGS_MERGED_USER := \
+  $(if $(shell dpkg --compare-versions "$$debootstrapVersion" '>=' '1.0.83' && echo true),--merged-usr)
 
 # $(1): relative directory path, e.g. "jessie/amd64"
 # $(2): file name, e.g. suite
@@ -84,7 +86,7 @@ $(hide) args=( --dir "$(@D)" --compression 'xz' debootstrap --arch="$(PRIVATE_AR
 $(if $(PRIVATE_VARIANT),args+=( --variant="$(PRIVATE_VARIANT)" );) \
 $(if $(PRIVATE_COMPONENTS),args+=( --components="$(PRIVATE_COMPONENTS)" );) \
 $(if $(PRIVATE_INCLUDE),args+=( --include="$(PRIVATE_INCLUDE)" );) \
-$(if $(PRIVATE_MERGED_USR),args+=( --merged-usr );) \
+$(if $(PRIVATE_MERGED_USR),$(if $(DEBOOTSTRAP_ARGS_MERGED_USER),args+=( --merged-usr );)) \
 $(if $(DEBOOTSTRAP_ARGS_COMMON),args+=( $(DEBOOTSTRAP_ARGS_COMMON) );) \
 args+=( "$(PRIVATE_SUITE)" ); \
 $(if $(PRIVATE_MIRROR), \
