@@ -183,7 +183,7 @@ endef
 define do-docker-build
 @echo "$@ <= docker building $(PRIVATE_PATH)";
 $(hide) if [ -n "$(FORCE)" -o -z "$$($(DOCKER) inspect $(DOCKER_USER)/$(DOCKER_REPO):$(PRIVATE_TARGET) 2>/dev/null | grep Created)" ]; then \
-  $(DOCKER) build -t $(DOCKER_USER)/$(DOCKER_REPO):$(PRIVATE_TARGET) $(PRIVATE_PATH); \
+  $(SUDO) $(DOCKER) build -t $(DOCKER_USER)/$(DOCKER_REPO):$(PRIVATE_TARGET) $(PRIVATE_PATH); \
   $(DOCKER) run --rm "$(DOCKER_USER)/$(DOCKER_REPO):$(PRIVATE_TARGET)" bash -xc ' \
     cat /etc/apt/sources.list; \
     echo; \
