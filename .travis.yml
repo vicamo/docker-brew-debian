@@ -58,6 +58,7 @@ env:
   - VARIANT=wheezy-sparc
 
 matrix:
+  fast_finish: true
   exclude:
   - env: VARIANT=jessie-kfreebsd-amd64
   - env: VARIANT=jessie-kfreebsd-i386
