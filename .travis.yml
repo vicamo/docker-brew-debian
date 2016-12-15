@@ -9,55 +9,19 @@ env:
   - CONTAINER_EXEC="docker exec -t debian_container"
   - secure: "OTCiJgdIj/yukkMSyPXzA9/wdubW3SnGABtPuA7D0QNVqZX1crwLwPrnhGdI1dN/BMVo/kmsBDmQtZA3AcFEo1XFmJ134QTBaToptXIqL6PZTb2zelOFJ6rQSK+mwmvr6+HMQbqy8c1wRrytDKlPaq+oLbFJEvmXx/UqrPoLuCY="
   matrix:
-  - VARIANT=jessie-amd64
-  - VARIANT=jessie-arm64
-  - VARIANT=jessie-armel
-  - VARIANT=jessie-armhf
-  - VARIANT=jessie-i386
-  - VARIANT=jessie-kfreebsd-amd64
-  - VARIANT=jessie-kfreebsd-i386
   - VARIANT=jessie-mips
   - VARIANT=jessie-mipsel
   - VARIANT=jessie-powerpc
-  - VARIANT=jessie-ppc64el
-  - VARIANT=jessie-s390x
-  - VARIANT=sid-amd64
-  - VARIANT=sid-arm64
-  - VARIANT=sid-armel
-  - VARIANT=sid-armhf
-  - VARIANT=sid-hurd-i386
-  - VARIANT=sid-i386
-  - VARIANT=sid-kfreebsd-amd64
-  - VARIANT=sid-kfreebsd-i386
   - VARIANT=sid-mips
   - VARIANT=sid-mips64el
   - VARIANT=sid-mipsel
   - VARIANT=sid-powerpc
-  - VARIANT=sid-ppc64el
-  - VARIANT=sid-s390x
-  - VARIANT=stretch-amd64
-  - VARIANT=stretch-arm64
-  - VARIANT=stretch-armel
-  - VARIANT=stretch-armhf
-  - VARIANT=stretch-i386
   - VARIANT=stretch-mips
   - VARIANT=stretch-mips64el
   - VARIANT=stretch-mipsel
-  - VARIANT=stretch-ppc64el
-  - VARIANT=stretch-s390x
-  - VARIANT=wheezy-amd64
-  - VARIANT=wheezy-armel
-  - VARIANT=wheezy-armhf
-  - VARIANT=wheezy-i386
-  - VARIANT=wheezy-ia64
-  - VARIANT=wheezy-kfreebsd-amd64
-  - VARIANT=wheezy-kfreebsd-i386
   - VARIANT=wheezy-mips
   - VARIANT=wheezy-mipsel
   - VARIANT=wheezy-powerpc
-  - VARIANT=wheezy-s390
-  - VARIANT=wheezy-s390x
-  - VARIANT=wheezy-sparc
 
 matrix:
   fast_finish: true
@@ -80,7 +44,7 @@ branches:
   - master
 
 before_install:
-- sudo git clone --depth 1 -b mkimage https://github.com/vicamo/docker.git "${TRAVIS_BUILD_DIR%${TRAVIS_REPO_SLUG}}/docker"
+- sudo git clone --depth 1 -b mips-force-ipv4-apt https://github.com/vicamo/docker.git "${TRAVIS_BUILD_DIR%${TRAVIS_REPO_SLUG}}/docker"
 - ln -sf "${TRAVIS_BUILD_DIR%${TRAVIS_REPO_SLUG}}/docker/contrib/mkimage.sh" ./mkimage.sh
 - |
   sudo docker run -d -i -t --name ${CONTAINER_NAME} \
@@ -95,6 +59,7 @@ before_install:
 
 script:
 - ${CONTAINER_EXEC} make -C "${TRAVIS_BUILD_DIR}" V=1 NO_SKIP=1 DOCKER_USER=${DOCKER_USER} -j $(nproc) all-$VARIANT
+- cat ${VARIANT%-*}/${VARIANT#*-}/rootfs/debootstrap/debootstrap.log
 - docker images | grep ^${DOCKER_USER}/$(cat repo) | awk '{print $1 ":" $2}'
 
 after_success:
