@@ -5,6 +5,8 @@ services:
 
 env:
   global:
+  - CONTAINER_NAME=debian_container
+  - CONTAINER_EXEC="docker exec -t debian_container"
   - secure: "OTCiJgdIj/yukkMSyPXzA9/wdubW3SnGABtPuA7D0QNVqZX1crwLwPrnhGdI1dN/BMVo/kmsBDmQtZA3AcFEo1XFmJ134QTBaToptXIqL6PZTb2zelOFJ6rQSK+mwmvr6+HMQbqy8c1wRrytDKlPaq+oLbFJEvmXx/UqrPoLuCY="
   matrix:
   - VARIANT=jessie-amd64
@@ -77,22 +79,22 @@ branches:
   only:
   - master
 
-addons:
-  apt:
-    sources:
-    - sourceline: 'deb http://archive.ubuntu.com/ubuntu/ devel main universe'
-    packages:
-    - binfmt-support
-    - debian-archive-keyring
-    - debootstrap
-    - qemu-user-static
-
 before_install:
 - sudo git clone --depth 1 -b mkimage https://github.com/vicamo/docker.git "${TRAVIS_BUILD_DIR%${TRAVIS_REPO_SLUG}}/docker"
 - ln -sf "${TRAVIS_BUILD_DIR%${TRAVIS_REPO_SLUG}}/docker/contrib/mkimage.sh" ./mkimage.sh
+- |
+  sudo docker run -d -i -t --name ${CONTAINER_NAME} \
+    --privileged -v /var/run/docker.sock:/var/run/docker.sock \
+    -v ${TRAVIS_BUILD_DIR%${TRAVIS_REPO_SLUG}}:${TRAVIS_BUILD_DIR%${TRAVIS_REPO_SLUG}} \
+    debian:sid /bin/bash
+- ${CONTAINER_EXEC} apt update -qq
+- |
+  ${CONTAINER_EXEC} apt install --no-install-recommends -y \
+    binfmt-support binutils curl debian-archive-keyring debootstrap docker.io \
+    make qemu-user-static sudo xz-utils
 
 script:
-- make V=1 NO_SKIP=1 DOCKER_USER=${DOCKER_USER} -j $(nproc) all-$VARIANT
+- ${CONTAINER_EXEC} make -C "${TRAVIS_BUILD_DIR}" V=1 NO_SKIP=1 DOCKER_USER=${DOCKER_USER} -j $(nproc) all-$VARIANT
 - docker images | grep ^${DOCKER_USER}/$(cat repo) | awk '{print $1 ":" $2}'
 
 after_success:
