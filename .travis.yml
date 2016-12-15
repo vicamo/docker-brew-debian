@@ -90,6 +90,7 @@ addons:
 before_install:
 - sudo git clone --depth 1 -b mkimage https://github.com/vicamo/docker.git "${TRAVIS_BUILD_DIR%${TRAVIS_REPO_SLUG}}/docker"
 - ln -sf "${TRAVIS_BUILD_DIR%${TRAVIS_REPO_SLUG}}/docker/contrib/mkimage.sh" ./mkimage.sh
+- sudo sed -i -e 's,^DEF_MIRROR=.*$,DEF_MIRROR="http://deb.debian.org/debian",' /usr/sbin/debootstrap
 
 script:
 - make V=1 NO_SKIP=1 DOCKER_USER=${DOCKER_USER} -j $(nproc) all-$VARIANT
