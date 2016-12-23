@@ -5,7 +5,7 @@ services:
 
 env:
   global:
-  - secure: "OTCiJgdIj/yukkMSyPXzA9/wdubW3SnGABtPuA7D0QNVqZX1crwLwPrnhGdI1dN/BMVo/kmsBDmQtZA3AcFEo1XFmJ134QTBaToptXIqL6PZTb2zelOFJ6rQSK+mwmvr6+HMQbqy8c1wRrytDKlPaq+oLbFJEvmXx/UqrPoLuCY="
+  - secure: "LI8wGYT9vDMFQTuU+4ZY4mYUpkvm1tIEp57Dx5/1nrasx7CGLV0NTWbIqd+zXWSVeREiWhP9prRdRSahrJxFGWhAmCnyZnnemhGjY18K7TD5YRk/pgK0EZIn465AoBEwo02nObKsEhyVDEhcIHJDrQW3NOKY72yO3FnS7V9rvb0="
   matrix:
   - VARIANT=jessie-amd64
   - VARIANT=jessie-arm64
