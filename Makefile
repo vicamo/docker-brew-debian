@@ -99,7 +99,12 @@ $(if $(PRIVATE_MIRROR), \
   args+=( "$(PRIVATE_MIRROR)" ); \
   $(if $(PRIVATE_SCRIPT),args+=( "$(PRIVATE_SCRIPT)" );)) \
 $(SUDO) $(PRIVATE_ENVS) nice ionice -c 3 "$(MKIMAGE)" "$${args[@]}" 2>&1 | tee "$(@D)/build.log"; \
-[ -f "$@" ] || exit 1; \
+if [ ! -f "$@" ]; then \
+  if [ -f "$(hide)$(@D)/rootfs/debootstrap/debootstrap.log" ]; then \
+    cat "$(@D)/rootfs/debootstrap/debootstrap.log"; \
+  fi; \
+  exit 1; \
+fi; \
 { \
   echo "$$(basename "$(MKIMAGE)") $${args[*]/"$(@D)"/.}"; \
   echo; \
