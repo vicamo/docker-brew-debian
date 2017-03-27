@@ -19,20 +19,28 @@ env:
   - VARIANT=jessie-powerpc
   - VARIANT=jessie-ppc64el
   - VARIANT=jessie-s390x
+  - VARIANT=sid-alpha
   - VARIANT=sid-amd64
   - VARIANT=sid-arm64
   - VARIANT=sid-armel
   - VARIANT=sid-armhf
+  - VARIANT=sid-hppa
   - VARIANT=sid-hurd-i386
   - VARIANT=sid-i386
   - VARIANT=sid-kfreebsd-amd64
   - VARIANT=sid-kfreebsd-i386
+  - VARIANT=sid-m68k
   - VARIANT=sid-mips
   - VARIANT=sid-mips64el
   - VARIANT=sid-mipsel
   - VARIANT=sid-powerpc
+  - VARIANT=sid-powerpcspe
+  - VARIANT=sid-ppc64
   - VARIANT=sid-ppc64el
   - VARIANT=sid-s390x
+  - VARIANT=sid-sh4
+  - VARIANT=sid-sparc64
+  - VARIANT=sid-x32
   - VARIANT=stretch-amd64
   - VARIANT=stretch-arm64
   - VARIANT=stretch-armel
@@ -62,15 +70,22 @@ matrix:
   exclude:
   - env: VARIANT=jessie-kfreebsd-amd64
   - env: VARIANT=jessie-kfreebsd-i386
+  - env: VARIANT=sid-hppa
   - env: VARIANT=sid-hurd-i386
   - env: VARIANT=sid-kfreebsd-amd64
   - env: VARIANT=sid-kfreebsd-i386
+  - env: VARIANT=sid-x32
   - env: VARIANT=wheezy-ia64
   - env: VARIANT=wheezy-kfreebsd-amd64
   - env: VARIANT=wheezy-kfreebsd-i386
   allow_failures:
   - env: VARIANT=jessie-s390x
+  - env: VARIANT=sid-m68k
+  - env: VARIANT=sid-powerpcspe
+  - env: VARIANT=sid-ppc64
   - env: VARIANT=sid-s390x
+  - env: VARIANT=sid-sh4
+  - env: VARIANT=sid-sparc64
   - env: VARIANT=stretch-s390x
   - env: VARIANT=wheezy-ia64
   - env: VARIANT=wheezy-s390
@@ -88,6 +103,7 @@ addons:
     packages:
     - binfmt-support
     - debian-archive-keyring
+    - debian-ports-archive-keyring
     - debootstrap
     - qemu-user-static
 
