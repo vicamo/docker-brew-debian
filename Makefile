@@ -94,6 +94,7 @@ $(if $(PRIVATE_COMPONENTS),args+=( --components="$(PRIVATE_COMPONENTS)" );) \
 $(if $(PRIVATE_INCLUDE),args+=( --include="$(PRIVATE_INCLUDE)" );) \
 $(if $(PRIVATE_MERGED_USR),$(if $(DEBOOTSTRAP_ARGS_MERGED_USER),args+=( --merged-usr );)) \
 $(if $(DEBOOTSTRAP_ARGS_COMMON),args+=( $(DEBOOTSTRAP_ARGS_COMMON) );) \
+$(if $(PRIVATE_DEBOOTSTRAP_ARGS),args+=( $(PRIVATE_DEBOOTSTRAP_ARGS) );) \
 args+=( "$(PRIVATE_SUITE)" ); \
 $(if $(PRIVATE_MIRROR), \
   args+=( "$(PRIVATE_MIRROR)" ); \
@@ -132,6 +133,7 @@ $(1)/rootfs.tar.xz: PRIVATE_MIRROR := $(call get-part,$(1),mirror)
 $(1)/rootfs.tar.xz: PRIVATE_SCRIPT := $(call get-part,$(1),script)
 $(1)/rootfs.tar.xz: PRIVATE_ENVS := $(call get-part,$(1),envs)
 $(1)/rootfs.tar.xz: PRIVATE_MERGED_USR := $(call get-part,$(1),merged-usr)
+$(1)/rootfs.tar.xz: PRIVATE_DEBOOTSTRAP_ARGS := $(call get-part,$(1),debootstrap-args)
 $(1)/rootfs.tar.xz:
 	$$(call do-rootfs-tarball)
 
