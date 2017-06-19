@@ -1,3 +1,3 @@
-FROM vicamo/debian:wheezy-kfreebsd-amd64
+FROM vicamo/debian:jessie-kfreebsd-amd64
 
-RUN sed -i 's/wheezy/oldstable/' /etc/apt/sources.list
+RUN sed -i 's/jessie/oldstable/' /etc/apt/sources.list

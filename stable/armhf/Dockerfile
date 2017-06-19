@@ -1,3 +1,3 @@
-FROM vicamo/debian:jessie-armhf
+FROM vicamo/debian:stretch-armhf
 
-RUN sed -i 's/jessie/stable/' /etc/apt/sources.list
+RUN sed -i 's/stretch/stable/' /etc/apt/sources.list

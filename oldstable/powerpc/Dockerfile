@@ -1,3 +1,3 @@
-FROM vicamo/debian:wheezy-powerpc
+FROM vicamo/debian:jessie-powerpc
 
-RUN sed -i 's/wheezy/oldstable/' /etc/apt/sources.list
+RUN sed -i 's/jessie/oldstable/' /etc/apt/sources.list

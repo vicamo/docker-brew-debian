@@ -1,3 +1,3 @@
-FROM vicamo/debian:wheezy-armhf
+FROM vicamo/debian:jessie-armhf
 
-RUN sed -i 's/wheezy/oldstable/' /etc/apt/sources.list
+RUN sed -i 's/jessie/oldstable/' /etc/apt/sources.list

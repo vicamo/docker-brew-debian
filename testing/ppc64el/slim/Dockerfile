@@ -1,2 +1,2 @@
-FROM vicamo/debian:stretch-ppc64el-slim
-RUN sed -i 's/stretch/testing/' /etc/apt/sources.list
+FROM vicamo/debian:buster-ppc64el-slim
+RUN sed -i 's/buster/testing/' /etc/apt/sources.list

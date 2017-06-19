@@ -1,2 +1,2 @@
-FROM vicamo/debian:wheezy-mips-slim
-RUN sed -i 's/wheezy/oldstable/' /etc/apt/sources.list
+FROM vicamo/debian:jessie-mips-slim
+RUN sed -i 's/jessie/oldstable/' /etc/apt/sources.list

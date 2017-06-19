@@ -7,9 +7,10 @@ else
 endif
 
 LATEST := $(shell cat latest)
-ALIAS_oldstable := wheezy
-ALIAS_stable := jessie
-ALIAS_testing := stretch
+ALIAS_oldoldstable := wheezy
+ALIAS_oldstable := jessie
+ALIAS_stable := stretch
+ALIAS_testing := buster
 ALIAS_unstable := sid
 
 DOCKER ?= docker
@@ -309,5 +310,5 @@ $(foreach f,$(shell find . -type f -name Dockerfile | cut -d/ -f2-), \
 )
 
 .PHONY: debian ubuntu
-debian: squeeze wheezy jessie stretch sid
-ubuntu: precise trusty utopic vivid wily
+debian: squeeze wheezy jessie stretch buster sid
+ubuntu: precise trusty utopic vivid wily xenial yakkety zesty

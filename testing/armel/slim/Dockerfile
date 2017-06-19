@@ -1,2 +1,2 @@
-FROM vicamo/debian:stretch-armel-slim
-RUN sed -i 's/stretch/testing/' /etc/apt/sources.list
+FROM vicamo/debian:buster-armel-slim
+RUN sed -i 's/buster/testing/' /etc/apt/sources.list

@@ -7,6 +7,16 @@ env:
   global:
   - secure: "LI8wGYT9vDMFQTuU+4ZY4mYUpkvm1tIEp57Dx5/1nrasx7CGLV0NTWbIqd+zXWSVeREiWhP9prRdRSahrJxFGWhAmCnyZnnemhGjY18K7TD5YRk/pgK0EZIn465AoBEwo02nObKsEhyVDEhcIHJDrQW3NOKY72yO3FnS7V9rvb0="
   matrix:
+  - VARIANT=buster-amd64
+  - VARIANT=buster-arm64
+  - VARIANT=buster-armel
+  - VARIANT=buster-armhf
+  - VARIANT=buster-i386
+  - VARIANT=buster-mips
+  - VARIANT=buster-mips64el
+  - VARIANT=buster-mipsel
+  - VARIANT=buster-ppc64el
+  - VARIANT=buster-s390x
   - VARIANT=jessie-amd64
   - VARIANT=jessie-arm64
   - VARIANT=jessie-armel
@@ -79,6 +89,7 @@ matrix:
   - env: VARIANT=wheezy-kfreebsd-amd64
   - env: VARIANT=wheezy-kfreebsd-i386
   allow_failures:
+  - env: VARIANT=buster-s390x
   - env: VARIANT=jessie-s390x
   - env: VARIANT=sid-m68k
   - env: VARIANT=sid-powerpcspe

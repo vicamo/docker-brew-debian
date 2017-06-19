@@ -1,3 +1,3 @@
-FROM vicamo/debian:stretch-i386
+FROM vicamo/debian:buster-i386
 
-RUN sed -i 's/stretch/testing/' /etc/apt/sources.list
+RUN sed -i 's/buster/testing/' /etc/apt/sources.list

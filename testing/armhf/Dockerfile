@@ -1,3 +1,3 @@
-FROM vicamo/debian:stretch-armhf
+FROM vicamo/debian:buster-armhf
 
-RUN sed -i 's/stretch/testing/' /etc/apt/sources.list
+RUN sed -i 's/buster/testing/' /etc/apt/sources.list
