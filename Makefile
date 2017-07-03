@@ -6,12 +6,25 @@ else
   hide := @
 endif
 
-LATEST := $(shell cat latest)
-ALIAS_oldoldstable := wheezy
-ALIAS_oldstable := jessie
-ALIAS_stable := stretch
-ALIAS_testing := buster
-ALIAS_unstable := sid
+DEBUERREOTYPE_ARTIFACTS_URL := https://raw.githubusercontent.com/debuerreotype/docker-debian-artifacts
+DEB_SNAPSHOT_BASE_URL := http://snapshot.debian.org/archive
+DEB_SNAPSHOT_EPOCH := $(shell wget --quiet -O - $(DEBUERREOTYPE_ARTIFACTS_URL)/dist-amd64/sid/rootfs.debuerreotype-epoch)
+DEB_SNAPSHOT_TIMESTAMP := $(shell date --date "@$(DEB_SNAPSHOT_EPOCH)" '+%Y%m%dT%H%M%SZ')
+DEB_SNAPSHOT_URL := $(DEB_SNAPSHOT_BASE_URL)/debian/$(DEB_SNAPSHOT_TIMESTAMP)
+DEB_SNAPSHOT_SEC_URL := $(DEB_SNAPSHOT_BASE_URL)/debian-security/$(DEB_SNAPSHOT_TIMESTAMP)
+
+# $(1): suite name, e.g. jessie
+define get-debian-codename
+$(shell (wget --quiet --spider $(DEB_SNAPSHOT_URL)/dists/$(1)/Release && wget --quiet -O - $(DEB_SNAPSHOT_URL)/dists/$(1)/Release 2>/dev/null) | grep ^Codename: | cut -d ' ' -f2)
+endef
+
+DEBIAN_ALIASED_NAMES := unstable testing stable oldstable
+DEBIAN_ALIASED_NAMES += oldoldstable
+$(foreach alias,$(DEBIAN_ALIASED_NAMES), \
+  $(eval ALIAS_$(alias) := $(call get-debian-codename,$(alias))) \
+  $(if $(ALIAS_$(alias)),$(info Debian $(alias) aliased to $(ALIAS_$(alias)))))
+LATEST := $(ALIAS_stable)
+$(info Latest aliased to $(LATEST))
 
 DOCKER ?= docker
 DOCKER_REPO := $(shell cat repo)
