@@ -80,21 +80,21 @@ matrix:
   exclude:
   - env: VARIANT=jessie-kfreebsd-amd64
   - env: VARIANT=jessie-kfreebsd-i386
+  - env: VARIANT=sid-alpha
   - env: VARIANT=sid-hppa
   - env: VARIANT=sid-hurd-i386
   - env: VARIANT=sid-kfreebsd-amd64
   - env: VARIANT=sid-kfreebsd-i386
-  - env: VARIANT=sid-x32
-  - env: VARIANT=wheezy-ia64
-  - env: VARIANT=wheezy-kfreebsd-amd64
-  - env: VARIANT=wheezy-kfreebsd-i386
-  allow_failures:
   - env: VARIANT=sid-m68k
   - env: VARIANT=sid-powerpcspe
   - env: VARIANT=sid-ppc64
   - env: VARIANT=sid-sh4
   - env: VARIANT=sid-sparc64
+  - env: VARIANT=sid-x32
   - env: VARIANT=wheezy-ia64
+  - env: VARIANT=wheezy-kfreebsd-amd64
+  - env: VARIANT=wheezy-kfreebsd-i386
+  allow_failures:
   - env: VARIANT=wheezy-s390
   - env: VARIANT=wheezy-sparc
 
