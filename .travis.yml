@@ -89,18 +89,13 @@ matrix:
   - env: VARIANT=wheezy-kfreebsd-amd64
   - env: VARIANT=wheezy-kfreebsd-i386
   allow_failures:
-  - env: VARIANT=buster-s390x
-  - env: VARIANT=jessie-s390x
   - env: VARIANT=sid-m68k
   - env: VARIANT=sid-powerpcspe
   - env: VARIANT=sid-ppc64
-  - env: VARIANT=sid-s390x
   - env: VARIANT=sid-sh4
   - env: VARIANT=sid-sparc64
-  - env: VARIANT=stretch-s390x
   - env: VARIANT=wheezy-ia64
   - env: VARIANT=wheezy-s390
-  - env: VARIANT=wheezy-s390x
   - env: VARIANT=wheezy-sparc
 
 branches:
@@ -119,9 +114,8 @@ addons:
     - qemu-user-static
 
 before_install:
-- sudo git clone --depth 1 -b mkimage https://github.com/vicamo/docker.git "${TRAVIS_BUILD_DIR%${TRAVIS_REPO_SLUG}}/docker"
-- ln -sf "${TRAVIS_BUILD_DIR%${TRAVIS_REPO_SLUG}}/docker/contrib/mkimage.sh" ./mkimage.sh
-- sudo sed -i -e 's,^DEF_MIRROR=.*$,DEF_MIRROR="http://deb.debian.org/debian",' /usr/sbin/debootstrap
+- sudo git clone --depth 1 -b multiarch https://github.com/vicamo/docker_debuerreotype.git "${TRAVIS_BUILD_DIR%${TRAVIS_REPO_SLUG}}/debuerreotype"
+- ln -sf "${TRAVIS_BUILD_DIR%${TRAVIS_REPO_SLUG}}/debuerreotype/build.sh" ./mkimage.sh
 
 script:
 - make V=1 NO_SKIP=1 DOCKER_USER=${DOCKER_USER} -j $(nproc) all-$VARIANT

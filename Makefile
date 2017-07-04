@@ -18,6 +18,16 @@ define get-debian-codename
 $(shell (wget --quiet --spider $(DEB_SNAPSHOT_URL)/dists/$(1)/Release && wget --quiet -O - $(DEB_SNAPSHOT_URL)/dists/$(1)/Release 2>/dev/null) | grep ^Codename: | cut -d ' ' -f2)
 endef
 
+DEBUERREOTYPE_SERIAL := $(shell date --date "@$(DEB_SNAPSHOT_EPOCH)" '+%Y%m%d')
+DEBUERREOTYPE_ARCH_NAME_armel := arm32v5
+DEBUERREOTYPE_ARCH_NAME_armhf := arm32v7
+DEBUERREOTYPE_ARCH_NAME_arm64 := arm64v8
+
+# $(1): debian architecture name
+define debuerreotype-arch-name
+$(if $(DEBUERREOTYPE_ARCH_NAME_$(1)),$(DEBUERREOTYPE_ARCH_NAME_$(1)),$(1))
+endef
+
 DEBIAN_ALIASED_NAMES := unstable testing stable oldstable
 DEBIAN_ALIASED_NAMES += oldoldstable
 $(foreach alias,$(DEBIAN_ALIASED_NAMES), \
@@ -29,15 +39,26 @@ $(info Latest aliased to $(LATEST))
 DOCKER ?= docker
 DOCKER_REPO := $(shell cat repo)
 DOCKER_USER ?= $(shell $(DOCKER) info | awk '/^Username:/ { print $$2 }')
-SUDO ?= sudo
 MKIMAGE ?= mkimage.sh
 MKIMAGE := $(shell readlink -f $(MKIMAGE))
 
-DEBOOTSTRAP_VERSION := $(shell dpkg-query -W -f '$${Version}' debootstrap)
-DEBOOTSTRAP_ARGS_COMMON := \
-  $(if $(shell dpkg --compare-versions "$(DEBOOTSTRAP_VERSION)" '>=' '1.0.69' && echo true),--force-check-gpg)
-DEBOOTSTRAP_ARGS_MERGED_USER := \
-  $(if $(shell dpkg --compare-versions "$(DEBOOTSTRAP_VERSION)" '>=' '1.0.83' && echo true),--merged-usr)
+DEB_SYSTEM_ARCH := $(shell dpkg --print-architecture)
+QEMU_NATIVE_ARCHS := amd64-i386 arm-armel armel-arm arm-armhf armhf-arm armel-armhf armhf-armel i386-amd64 powerpc-ppc64 ppc64-powerpc sparc-sparc64 sparc64-sparc s390-s390x s390x-s390
+$(foreach arch,alpha arm armeb i386 m68k mips mipsel mips64el ppc64 sh4 sh4eb sparc sparc64 s390x,$(eval QEMU_ARCH_$(arch) := $(arch)))
+QEMU_ARCH_amd64 := x86_64
+QEMU_ARCH_armel := arm
+QEMU_ARCH_armhf := arm
+QEMU_ARCH_arm64 := aarch64
+QEMU_ARCH_lpia := i386
+QEMU_ARCH_powerpc := ppc
+QEMU_ARCH_powerpcspe := ppc
+QEMU_ARCH_ppc64el := ppc64le
+
+# $(1): system dpkg arch
+# $(2): target dpkg arch
+define get-qemu-arch
+$(if $(filter $(1)-$(2),$(1)-$(1) $(QEMU_NATIVE_ARCHS)),,$(QEMU_ARCH_$(2)))
+endef
 
 # $(1): relative directory path, e.g. "jessie/amd64"
 # $(2): file name, e.g. suite
@@ -99,33 +120,40 @@ define enumerate-additional-tags-for
 $(if $(filter amd64,$(2)),$(1)$(if $(3),-$(3))) $(if $(filter $(LATEST),$(1)),latest-$(2)$(if $(3),-$(3)) $(if $(filter amd64,$(2)),latest$(if $(3),-$(3))))
 endef
 
+define do-debuerreotype-rootfs-tarball
+@echo "$@ <= building";
+$(hide) [ ! -d "$(@D)" ] || rm -rf "$(@D)"; \
+mkdir -p "$(@D)"; \
+args=( --dpkg-arch="$(PRIVATE_ARCH)" "$(@D)" ); \
+args+=( "$(PRIVATE_SUITE)" ); \
+args+=( "@$(DEB_SNAPSHOT_EPOCH)" ); \
+$(PRIVATE_ENVS) nice ionice -c 3 "$(MKIMAGE)" "$${args[@]}" 2>&1 | tee "$(@D)/build.log"; \
+touch "$@"
+
+endef
+
+# $(1): relative directory path, e.g. "jessie/amd64"
+# $(2): target name, e.g. jessie-amd64
+# $(3): suite name, e.g. jessie
+# $(4): arch name, e.g. amd64
+define define-build-debuerreotype-rootfs-tarball-target
+$(1)/debuerreotype/stamp: PRIVATE_TARGET := $(2)
+$(1)/debuerreotype/stamp: PRIVATE_SUITE := $(3)
+$(1)/debuerreotype/stamp: PRIVATE_ARCH := $(4)
+$(1)/debuerreotype/stamp: PRIVATE_DEBUERREOTYPE_ARCH := $(call debuerreotype-arch-name,$(4))
+$(1)/debuerreotype/stamp: PRIVATE_ENVS := $(call get-part,$(1),envs)
+$(1)/debuerreotype/stamp:
+	$$(call do-debuerreotype-rootfs-tarball)
+
+endef
+
 define do-rootfs-tarball
 @echo "$@ <= building";
-$(hide) [ ! -d "$(@D)/rootfs" ] || $(SUDO) rm -rf "$(@D)/rootfs";
-$(hide) args=( --dir "$(@D)" --compression 'xz' debootstrap --arch="$(PRIVATE_ARCH)" ); \
-$(if $(PRIVATE_VARIANT),args+=( --variant="$(PRIVATE_VARIANT)" );) \
-$(if $(PRIVATE_COMPONENTS),args+=( --components="$(PRIVATE_COMPONENTS)" );) \
-$(if $(PRIVATE_INCLUDE),args+=( --include="$(PRIVATE_INCLUDE)" );) \
-$(if $(PRIVATE_MERGED_USR),$(if $(DEBOOTSTRAP_ARGS_MERGED_USER),args+=( --merged-usr );)) \
-$(if $(DEBOOTSTRAP_ARGS_COMMON),args+=( $(DEBOOTSTRAP_ARGS_COMMON) );) \
-$(if $(PRIVATE_DEBOOTSTRAP_ARGS),args+=( $(PRIVATE_DEBOOTSTRAP_ARGS) );) \
-args+=( "$(PRIVATE_SUITE)" ); \
-$(if $(PRIVATE_MIRROR), \
-  args+=( "$(PRIVATE_MIRROR)" ); \
-  $(if $(PRIVATE_SCRIPT),args+=( "$(PRIVATE_SCRIPT)" );)) \
-$(SUDO) $(PRIVATE_ENVS) nice ionice -c 3 "$(MKIMAGE)" "$${args[@]}" 2>&1 | tee "$(@D)/build.log"; \
-if [ ! -f "$@" ]; then \
-  if [ -f "$(hide)$(@D)/rootfs/debootstrap/debootstrap.log" ]; then \
-    cat "$(@D)/rootfs/debootstrap/debootstrap.log"; \
-  fi; \
-  exit 1; \
-fi; \
-{ \
-  echo "$$(basename "$(MKIMAGE)") $${args[*]/"$(@D)"/.}"; \
-  echo; \
-  echo 'https://github.com/docker/docker/blob/master/contrib/mkimage.sh'; \
-} > $(@D)/build-command.txt;
-$(hide) $(SUDO) chown -R "$$(id -u):$$(id -g)" "$(@D)";
+$(hide) if [ -z "$<" ]; then \
+  wget --quiet --continue -O "$@" "$(DEBUERREOTYPE_ARTIFACTS_URL)/dist-$(PRIVATE_DEBUERREOTYPE_ARCH)/$(PRIVATE_SUITE)$(if $(PRIVATE_FUNC),/$(PRIVATE_FUNC))/rootfs.tar.xz"; \
+else \
+  cp "$(PRIVATE_SUITE)/$(PRIVATE_ARCH)/debuerreotype/$(DEBUERREOTYPE_SERIAL)/$(PRIVATE_ARCH)/$(PRIVATE_SUITE)$(if $(PRIVATE_FUNC),/$(PRIVATE_FUNC))/rootfs.tar.xz" "$@"; \
+fi
 
 endef
 
@@ -140,80 +168,15 @@ $(1)/rootfs.tar.xz: PRIVATE_TARGET := $(2)
 $(1)/rootfs.tar.xz: PRIVATE_PATH := $(1)
 $(1)/rootfs.tar.xz: PRIVATE_SUITE := $(3)
 $(1)/rootfs.tar.xz: PRIVATE_ARCH := $(4)
-$(1)/rootfs.tar.xz: PRIVATE_VARIANT := $(call get-part,$(1),variant,minbase)
-$(1)/rootfs.tar.xz: PRIVATE_COMPONENTS := $(call get-part,$(1),components,main)
+$(1)/rootfs.tar.xz: PRIVATE_FUNC := $(5)
 $(1)/rootfs.tar.xz: PRIVATE_INCLUDE := $(call get-part,$(1),include)
 $(1)/rootfs.tar.xz: PRIVATE_MIRROR := $(call get-part,$(1),mirror)
-$(1)/rootfs.tar.xz: PRIVATE_SCRIPT := $(call get-part,$(1),script)
+$(1)/rootfs.tar.xz: PRIVATE_DEBUERREOTYPE_ARCH := $(call debuerreotype-arch-name,$(4))
 $(1)/rootfs.tar.xz: PRIVATE_ENVS := $(call get-part,$(1),envs)
-$(1)/rootfs.tar.xz: PRIVATE_MERGED_USR := $(call get-part,$(1),merged-usr)
 $(1)/rootfs.tar.xz: PRIVATE_DEBOOTSTRAP_ARGS := $(call get-part,$(1),debootstrap-args)
+$(1)/rootfs.tar.xz: $(if $(shell wget --quiet --spider "$(DEBUERREOTYPE_ARTIFACTS_URL)/dist-$(call debuerreotype-arch-name,$(4))/$(3)$(if $(5),/$(5))/rootfs.tar.xz" && echo yes),,$(3)/$(4)/debuerreotype/stamp)
 $(1)/rootfs.tar.xz:
 	$$(call do-rootfs-tarball)
-
-docker-build-$(2): $(1)/rootfs.tar.xz
-
-endef
-
-define do-slim-rootfs-tarball
-@echo "$@ <= building";
-$(hide) [ ! -d "$(@D)/rootfs" ] || $(SUDO) rm -rf "$(@D)/rootfs";
-$(hide) mkdir -p "$(@D)/rootfs";
-$(hide) $(SUDO) tar --extract --file "$<" --directory "$(@D)/rootfs";
-$(hide) dpkgCfgFile="$(@D)/rootfs/etc/dpkg/dpkg.cfg.d/docker"; \
-  $(SUDO) mkdir -p "$$(dirname "$$dpkgCfgFile")"; \
-  { \
-    echo '# This is the "slim" variant of the Debian base image.'; \
-    echo '# Many files which are normally unnecessary in containers are excluded,'; \
-    echo '# and this configuration file keeps them that way.'; \
-  } | $(SUDO) tee -a "$$dpkgCfgFile" >/dev/null; \
-  neverExclude='/usr/share/doc/*/copyright'; \
-  for slimExclude in "$(PRIVATE_SLIM_EXCLUDES)"; do \
-    { \
-      echo; \
-      echo "# dpkg -S '$$slimExclude'"; \
-      if dpkgOutput="$$($(SUDO) chroot "$(@D)/rootfs" dpkg -S "$$slimExclude" 2>&1)"; then \
-        echo "$$dpkgOutput" | sed 's/: .*//g; s/, /\n/g' | sort -u | xargs; \
-      else \
-        echo "$$dpkgOutput"; \
-      fi | fold -w 76 -s | sed 's/^/#  /'; \
-      echo "path-exclude $$slimExclude"; \
-    } | $(SUDO) tee -a "$$dpkgCfgFile" >/dev/null; \
-    if [[ "$$slimExclude" == *'/*' ]]; then \
-      if [ -d "$(@D)/rootfs/$$(dirname "$$slimExclude")" ]; then \
-        $(SUDO) chroot "$(@D)/rootfs" \
-          find "$$(dirname "$$slimExclude")" -mindepth 1 -not -path "$$neverExclude" -not -type d -delete; \
-	$(SUDO) chroot "$(@D)/rootfs" \
-          find "$$(dirname "$$slimExclude")" -mindepth 1 -empty -delete; \
-      fi; \
-    fi; \
-  done; \
-  { \
-    echo; \
-    echo '# always include these files, especially for license compliance'; \
-    echo "path-include $$neverExclude"; \
-  } | $(SUDO) tee -a "$$dpkgCfgFile" >/dev/null; \
-  cat "$$dpkgCfgFile"
-$(hide) $(SUDO) tar --numeric-owner --create --auto-compress --file "$@" --directory "$(@D)/rootfs" --transform='s,^./,,' .
-$(hide) $(SUDO) chown -R "$$(id -u):$$(id -g)" "$(@D)";
-
-endef
-
-# $(1): relative directory path, e.g. "jessie/amd64", "jessie/amd64/scm"
-# $(2): target name, e.g. jessie-amd64-scm
-# $(3): suite name, e.g. jessie
-# $(4): arch name, e.g. amd64
-# $(5): func name, e.g. scm
-define define-build-slim-rootfs-tarball-target
-$(2): $(1)/rootfs.tar.xz
-$(1)/rootfs.tar.xz: PRIVATE_TARGET := $(2)
-$(1)/rootfs.tar.xz: PRIVATE_PATH := $(1)
-$(1)/rootfs.tar.xz: PRIVATE_SUITE := $(3)
-$(1)/rootfs.tar.xz: PRIVATE_ARCH := $(4)
-$(1)/rootfs.tar.xz: PRIVATE_ENVS := $(call get-part,$(1),envs)
-$(1)/rootfs.tar.xz: PRIVATE_SLIM_EXCLUDES := $(call get-part,$(1),slim-excludes)
-$(1)/rootfs.tar.xz: $(dir $(1))rootfs.tar.xz
-	$$(call do-slim-rootfs-tarball)
 
 docker-build-$(2): $(1)/rootfs.tar.xz
 
@@ -222,18 +185,20 @@ endef
 define do-docker-build
 @echo "$@ <= docker building $(PRIVATE_PATH)";
 $(hide) if [ -n "$(FORCE)" -o -z "$$($(DOCKER) inspect $(DOCKER_USER)/$(DOCKER_REPO):$(PRIVATE_TARGET) 2>/dev/null | grep Created)" ]; then \
-  $(SUDO) $(DOCKER) build -t $(DOCKER_USER)/$(DOCKER_REPO):$(PRIVATE_TARGET) $(PRIVATE_PATH); \
-  $(DOCKER) run --rm "$(DOCKER_USER)/$(DOCKER_REPO):$(PRIVATE_TARGET)" bash -xc ' \
-    cat /etc/apt/sources.list; \
-    echo; \
-    cat /etc/os-release 2>/dev/null; \
-    echo; \
-    cat /etc/lsb-release 2>/dev/null; \
-    echo; \
-    cat /etc/debian_version 2>/dev/null; \
-    true; \
-  '; \
-  $(DOCKER) run --rm "$(DOCKER_USER)/$(DOCKER_REPO):$(PRIVATE_TARGET)" dpkg-query -f '$${Package}\t$${Version}\n' -W > "$(PRIVATE_PATH)/build.manifest"; \
+  is_scratch=$(filter scratch,$(call base-image-from-path,$(PRIVATE_PATH))); \
+  qemu_arch=$(call get-qemu-arch,$(DEB_SYSTEM_ARCH),$(PRIVATE_ARCH)); \
+  if [ -n "$${is_scratch}" -a -n "$${qemu_arch}" ]; then \
+    staging_tag=$(DOCKER_USER)/$(DOCKER_REPO)-staging:$(PRIVATE_TARGET); \
+    $(DOCKER) build --tag $${staging_tag} $(PRIVATE_PATH); \
+    cp $(PRIVATE_SUITE)/$(DEB_SYSTEM_ARCH)/qemu/qemu-$${qemu_arch}-static $(PRIVATE_PATH); \
+    { echo "FROM $${staging_tag}"; echo "ADD qemu-$${qemu_arch}-static /usr/bin/qemu-$${qemu_arch}-static"; } | \
+      tee $(PRIVATE_PATH)/Dockerfile.real; \
+    $(DOCKER) build --tag $(DOCKER_USER)/$(DOCKER_REPO):$(PRIVATE_TARGET) --file $(PRIVATE_PATH)/Dockerfile.real $(PRIVATE_PATH); \
+    $(DOCKER) rmi $${staging_tag}; \
+    rm "$(PRIVATE_PATH)/Dockerfile.real" "$(PRIVATE_PATH)/qemu-$${qemu_arch}-static"; \
+  else \
+    $(DOCKER) build -t $(DOCKER_USER)/$(DOCKER_REPO):$(PRIVATE_TARGET) $(PRIVATE_PATH); \
+  fi; \
 fi
 
 endef
@@ -248,8 +213,34 @@ define define-docker-build-target
 $(2): docker-build-$(2)
 docker-build-$(2): PRIVATE_TARGET := $(2)
 docker-build-$(2): PRIVATE_PATH := $(1)
+docker-build-$(2): PRIVATE_SUITE := $(3)
+docker-build-$(2): PRIVATE_ARCH := $(4)
+docker-build-$(2): PRIVATE_FUNC := $(5)
+docker-build-$(2): $(if $(filter scratch,$(call base-image-from-path,$(1))),$(if $(filter-out $(DEB_SYSTEM_ARCH),$(4)),qemu-binary-$(3)))
 docker-build-$(2): $(call enumerate-build-dep-for-docker-build,$(1))
 	$$(call do-docker-build)
+
+endef
+
+define do-qemu-binary
+$(hide) if [ -z "$$(ls -1 $(PRIVATE_PATH)/qemu/qemu-*-static 2>/dev/null)" ]; then \
+  mkdir -p "$(PRIVATE_PATH)/qemu"; \
+  $(DOCKER) run --rm --volume "$(abspath $(PRIVATE_PATH)/qemu)":/export $(DOCKER_USER)/$(DOCKER_REPO):$(PRIVATE_TARGET) \
+    /bin/sh -xc '(cd /tmp; apt-get update --quiet && apt-get download qemu-user-static && dpkg-deb -x *.deb .) && cp /tmp/usr/bin/qemu-*-static /export'; \
+  $$(ls -1 $(PRIVATE_PATH)/qemu/qemu-*-static | head -n 1) -version; \
+fi
+
+endef
+
+# $(1): relative directory path, e.g. "jessie/amd64", "jessie/amd64/scm"
+# $(2): target name, e.g. jessie-amd64-scm
+# $(3): suite name, e.g. jessie
+define define-qemu-binary-target
+.PHONY: qemu-binary-$(3)
+qemu-binary-$(3): PRIVATE_PATH := $(1)
+qemu-binary-$(3): PRIVATE_TARGET := $(2)
+qemu-binary-$(3): docker-build-$(2)
+	$$(call do-qemu-binary)
 
 endef
 
@@ -295,9 +286,12 @@ $(suite_arch_target): $(target)
 $(target):
 	@echo "$$@ done"
 
+$(if $(func),,$(call define-build-debuerreotype-rootfs-tarball-target,$(1),$(target),$(suite),$(arch)))
 $(if $(filter scratch,$(call base-image-from-path,$(1))), \
-  $(call define-build-$(if $(func),$(func)-)rootfs-tarball-target,$(1),$(target),$(suite),$(arch),$(func)))
+  $(call define-build-rootfs-tarball-target,$(1),$(target),$(suite),$(arch),$(func)))
 $(call define-docker-build-target,$(1),$(target),$(suite),$(arch),$(func))
+$(if $(filter $(DEB_SYSTEM_ARCH)-,$(arch)-$(func)), \
+  $(call define-qemu-binary-target,$(1),$(target),$(suite)))
 $(if $(strip $(call enumerate-additional-tags-for,$(suite),$(arch),$(func))), \
   $(call define-docker-tag-target,$(1),$(target),$(suite),$(arch),$(func)))
 
