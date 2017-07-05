@@ -120,6 +120,16 @@ define enumerate-additional-tags-for
 $(if $(filter amd64,$(2)),$(1)$(if $(3),-$(3))) $(if $(filter $(LATEST),$(1)),latest-$(2)$(if $(3),-$(3)) $(if $(filter amd64,$(2)),latest$(if $(3),-$(3))))
 endef
 
+# $(1): relative directory path, e.g. "jessie/amd64"
+define is-scratch
+$(filter scratch,$(call base-image-from-path,$(1)))
+endef
+
+# $(1): relative directory path, e.g. "jessie/amd64"
+define maybe-qemu-arch
+$(if $(call is-scratch,$(1)),$(call get-qemu-arch,$(DEB_SYSTEM_ARCH),$(call arch-name-from-path,$(1))))
+endef
+
 define do-debuerreotype-rootfs-tarball
 @echo "$@ <= building";
 $(hide) [ ! -d "$(@D)" ] || rm -rf "$(@D)"; \
@@ -184,21 +194,21 @@ endef
 
 define do-docker-build
 @echo "$@ <= docker building $(PRIVATE_PATH)";
-$(hide) if [ -n "$(FORCE)" -o -z "$$($(DOCKER) inspect $(DOCKER_USER)/$(DOCKER_REPO):$(PRIVATE_TARGET) 2>/dev/null | grep Created)" ]; then \
-  is_scratch=$(filter scratch,$(call base-image-from-path,$(PRIVATE_PATH))); \
-  qemu_arch=$(call get-qemu-arch,$(DEB_SYSTEM_ARCH),$(PRIVATE_ARCH)); \
-  if [ -n "$${is_scratch}" -a -n "$${qemu_arch}" ]; then \
-    staging_tag=$(DOCKER_USER)/$(DOCKER_REPO)-staging:$(PRIVATE_TARGET); \
+$(hide) target_tag=$(DOCKER_USER)/$(DOCKER_REPO):$(PRIVATE_TARGET); \
+if [ -n "$(FORCE)" -o -z "$$($(DOCKER) inspect $${target_tag} 2>/dev/null | grep Created)" ]; then \
+  if [ -n "$(PRIVATE_QEMU_ARCH)" ]; then \
+    staging_tag=$${target_tag}-staging; \
     $(DOCKER) build --tag $${staging_tag} $(PRIVATE_PATH); \
-    cp $(PRIVATE_SUITE)/$(DEB_SYSTEM_ARCH)/qemu/qemu-$${qemu_arch}-static $(PRIVATE_PATH); \
-    { echo "FROM $${staging_tag}"; echo "ADD qemu-$${qemu_arch}-static /usr/bin/qemu-$${qemu_arch}-static"; } | \
+    cp $(PRIVATE_QEMU_SUITE)/$(DEB_SYSTEM_ARCH)/qemu/qemu-$(PRIVATE_QEMU_ARCH)-static $(PRIVATE_PATH); \
+    { echo "FROM $${staging_tag}"; echo "ADD qemu-$(PRIVATE_QEMU_ARCH)-static /usr/bin/qemu-$(PRIVATE_QEMU_ARCH)-static"; } | \
       tee $(PRIVATE_PATH)/Dockerfile.real; \
-    $(DOCKER) build --tag $(DOCKER_USER)/$(DOCKER_REPO):$(PRIVATE_TARGET) --file $(PRIVATE_PATH)/Dockerfile.real $(PRIVATE_PATH); \
+    $(DOCKER) build --tag $${target_tag} --file $(PRIVATE_PATH)/Dockerfile.real $(PRIVATE_PATH); \
     $(DOCKER) rmi $${staging_tag}; \
-    rm "$(PRIVATE_PATH)/Dockerfile.real" "$(PRIVATE_PATH)/qemu-$${qemu_arch}-static"; \
+    rm "$(PRIVATE_PATH)/Dockerfile.real" "$(PRIVATE_PATH)/qemu-$(PRIVATE_QEMU_ARCH)-static"; \
   else \
-    $(DOCKER) build -t $(DOCKER_USER)/$(DOCKER_REPO):$(PRIVATE_TARGET) $(PRIVATE_PATH); \
+    $(DOCKER) build -t $${target_tag} $(PRIVATE_PATH); \
   fi; \
+  $(DOCKER) run --rm $${target_tag} dpkg-query -f '$${Package}\t$${Version}\n' -W > "$(PRIVATE_PATH)/build.manifest"; \
 fi
 
 endef
@@ -216,7 +226,9 @@ docker-build-$(2): PRIVATE_PATH := $(1)
 docker-build-$(2): PRIVATE_SUITE := $(3)
 docker-build-$(2): PRIVATE_ARCH := $(4)
 docker-build-$(2): PRIVATE_FUNC := $(5)
-docker-build-$(2): $(if $(filter scratch,$(call base-image-from-path,$(1))),$(if $(filter-out $(DEB_SYSTEM_ARCH),$(4)),qemu-binary-$(3)))
+docker-build-$(2): PRIVATE_QEMU_SUITE := $(if $(filter wheezy,$(3)),jessie,$(3))
+docker-build-$(2): PRIVATE_QEMU_ARCH := $(call maybe-qemu-arch,$(1))
+docker-build-$(2): $(if $(call maybe-qemu-arch,$(1)),qemu-binary-$(if $(filter wheezy,$(3)),jessie,$(3)))
 docker-build-$(2): $(call enumerate-build-dep-for-docker-build,$(1))
 	$$(call do-docker-build)
 
@@ -287,7 +299,7 @@ $(target):
 	@echo "$$@ done"
 
 $(if $(func),,$(call define-build-debuerreotype-rootfs-tarball-target,$(1),$(target),$(suite),$(arch)))
-$(if $(filter scratch,$(call base-image-from-path,$(1))), \
+$(if $(call is-scratch,$(1)), \
   $(call define-build-rootfs-tarball-target,$(1),$(target),$(suite),$(arch),$(func)))
 $(call define-docker-build-target,$(1),$(target),$(suite),$(arch),$(func))
 $(if $(filter $(DEB_SYSTEM_ARCH)-,$(arch)-$(func)), \
