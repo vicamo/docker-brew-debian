@@ -101,18 +101,9 @@ branches:
   only:
   - master
 
-addons:
-  apt:
-    sources:
-    - sourceline: 'deb http://archive.ubuntu.com/ubuntu/ devel main universe'
-    packages:
-    - binfmt-support
-    - debian-archive-keyring
-    - debian-ports-archive-keyring
-    - debootstrap
-    - qemu-user-static
-
 before_install:
+- docker run --rm --privileged vicamo/binfmt-qemu:latest
+- cat /proc/sys/fs/binfmt_misc/qemu-*
 - sudo git clone --depth 1 -b multiarch https://github.com/vicamo/docker_debuerreotype.git "${TRAVIS_BUILD_DIR%${TRAVIS_REPO_SLUG}}/debuerreotype"
 - ln -sf "${TRAVIS_BUILD_DIR%${TRAVIS_REPO_SLUG}}/debuerreotype/build.sh" ./mkimage.sh
 
