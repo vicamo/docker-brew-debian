@@ -53,6 +53,13 @@ QEMU_ARCH_lpia := i386
 QEMU_ARCH_powerpc := ppc
 QEMU_ARCH_powerpcspe := ppc
 QEMU_ARCH_ppc64el := ppc64le
+QEMU_SUITE_wheezy := stretch
+QEMU_SUITE_jessie := stretch
+
+# $(1): suite
+define get-qemu-suite
+$(if $(QEMU_SUITE_$(1)),$(QEMU_SUITE_$(1)),$(1))
+endef
 
 # $(1): system dpkg arch
 # $(2): target dpkg arch
@@ -226,9 +233,9 @@ docker-build-$(2): PRIVATE_PATH := $(1)
 docker-build-$(2): PRIVATE_SUITE := $(3)
 docker-build-$(2): PRIVATE_ARCH := $(4)
 docker-build-$(2): PRIVATE_FUNC := $(5)
-docker-build-$(2): PRIVATE_QEMU_SUITE := $(if $(filter wheezy,$(3)),jessie,$(3))
+docker-build-$(2): PRIVATE_QEMU_SUITE := $(call get-qemu-suite,$(3))
 docker-build-$(2): PRIVATE_QEMU_ARCH := $(call maybe-qemu-arch,$(1))
-docker-build-$(2): $(if $(call maybe-qemu-arch,$(1)),qemu-binary-$(if $(filter wheezy,$(3)),jessie,$(3)))
+docker-build-$(2): $(if $(call maybe-qemu-arch,$(1)),qemu-binary-$(call get-qemu-suite,$(3)))
 docker-build-$(2): $(call enumerate-build-dep-for-docker-build,$(1))
 	$$(call do-docker-build)
 
