@@ -141,7 +141,7 @@ define do-debuerreotype-rootfs-tarball
 @echo "$@ <= building";
 $(hide) [ ! -d "$(@D)" ] || rm -rf "$(@D)"; \
 mkdir -p "$(@D)"; \
-args=( --dpkg-arch="$(PRIVATE_ARCH)" "$(@D)" ); \
+args=( --arch="$(PRIVATE_ARCH)" "$(@D)" ); \
 args+=( "$(PRIVATE_SUITE)" ); \
 args+=( "@$(DEB_SNAPSHOT_EPOCH)" ); \
 $(PRIVATE_ENVS) nice ionice -c 3 "$(MKIMAGE)" "$${args[@]}" 2>&1 | tee "$(@D)/build.log"; \
