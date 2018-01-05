@@ -118,3 +118,7 @@ after_success:
       docker push $image;
     done
   fi
+
+notifications:
+  slack:
+    secure: Zqpkh3JX8YwL0HmG+CazR+NhbZLCYWTvKpa4svwgqcesaKMeKBNXY8PKuEbImN/Gyh/WS/VuF2OteAEW5Vh8XI64XcxnBj6hj7OAy2tPwOqO4hVFltdmlBTL6Yucad0GqxPxF9BtSHsV2HiLYVqd4oF6oRgSR8dwO3Zm/CKnT2s=
