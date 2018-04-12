@@ -9,7 +9,7 @@ endif
 DEBUERREOTYPE_ARTIFACTS_URL := https://raw.githubusercontent.com/debuerreotype/docker-debian-artifacts
 DEB_SNAPSHOT_BASE_URL := http://snapshot.debian.org/archive
 DEB_SNAPSHOT_EPOCH := $(shell wget --quiet -O - $(DEBUERREOTYPE_ARTIFACTS_URL)/dist-amd64/sid/rootfs.debuerreotype-epoch)
-DEB_SNAPSHOT_TIMESTAMP := $(shell date --date "@$(DEB_SNAPSHOT_EPOCH)" '+%Y%m%dT%H%M%SZ')
+DEB_SNAPSHOT_TIMESTAMP := $(shell env TZ=UTC LC_ALL=C date --date "@$(DEB_SNAPSHOT_EPOCH)" '+%Y%m%dT%H%M%SZ')
 DEB_SNAPSHOT_URL := $(DEB_SNAPSHOT_BASE_URL)/debian/$(DEB_SNAPSHOT_TIMESTAMP)
 DEB_SNAPSHOT_SEC_URL := $(DEB_SNAPSHOT_BASE_URL)/debian-security/$(DEB_SNAPSHOT_TIMESTAMP)
 
@@ -18,7 +18,7 @@ define get-debian-codename
 $(shell (wget --quiet --spider $(DEB_SNAPSHOT_URL)/dists/$(1)/Release && wget --quiet -O - $(DEB_SNAPSHOT_URL)/dists/$(1)/Release 2>/dev/null) | grep ^Codename: | cut -d ' ' -f2)
 endef
 
-DEBUERREOTYPE_SERIAL := $(shell date --date "@$(DEB_SNAPSHOT_EPOCH)" '+%Y%m%d')
+DEBUERREOTYPE_SERIAL := $(shell env TZ=UTC LC_ALL=C date --date "@$(DEB_SNAPSHOT_EPOCH)" '+%Y%m%d')
 DEBUERREOTYPE_ARCH_NAME_armel := arm32v5
 DEBUERREOTYPE_ARCH_NAME_armhf := arm32v7
 DEBUERREOTYPE_ARCH_NAME_arm64 := arm64v8
