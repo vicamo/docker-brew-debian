@@ -138,6 +138,23 @@ define maybe-qemu-arch
 $(if $(call is-scratch,$(1)),$(call get-qemu-arch,$(DEB_SYSTEM_ARCH),$(call arch-name-from-path,$(1))))
 endef
 
+# $(1): suite name, e.g. jessie
+# $(2): arch name, e.g. amd64
+# $(3): func name, e.g. scm
+define debuerreotype-prebuilt-url-for
+$(DEBUERREOTYPE_ARTIFACTS_URL)/dist-$(call debuerreotype-arch-name,$(2))/$(1)$(if $(3),/$(3))/rootfs.tar.xz
+endef
+
+# $(1): suite name, e.g. jessie
+# $(2): arch name, e.g. amd64
+# $(3): func name, e.g. scm
+define has-debuerreotype-prebuilt
+$(filter yes,\
+  $(if $(HAS_DEBUERREOTYPE_PREBUILT_$(1)_$(2)_$(3)),,\
+    $(eval HAS_DEBUERREOTYPE_PREBUILT_$(1)_$(2)_$(3) := $(if $(shell wget --quiet --spider "$(call debuerreotype-prebuilt-url-for,$(1),$(2),$(3))" && echo yes),yes,no))) \
+  $(HAS_DEBUERREOTYPE_PREBUILT_$(1)_$(2)_$(3)))
+endef
+
 define do-debuerreotype-rootfs-tarball
 @echo "$@ <= building";
 $(hide) [ ! -d "$(@D)" ] || rm -rf "$(@D)"; \
@@ -172,7 +189,7 @@ endef
 define do-rootfs-tarball
 @echo "$@ <= building";
 $(hide) if [ -z "$<" ]; then \
-  wget --quiet --continue -O "$@" "$(DEBUERREOTYPE_ARTIFACTS_URL)/dist-$(PRIVATE_DEBUERREOTYPE_ARCH)/$(PRIVATE_SUITE)$(if $(PRIVATE_FUNC),/$(PRIVATE_FUNC))/rootfs.tar.xz"; \
+  wget --quiet --continue -O "$@" "$(call debuerreotype-prebuilt-url-for,$(PRIVATE_SUITE),$(PRIVATE_ARCH),$(PRIVATE_FUNC))"; \
 else \
   cp "$(PRIVATE_SUITE)/$(PRIVATE_ARCH)/debuerreotype/$(DEBUERREOTYPE_SERIAL)/$(PRIVATE_ARCH)/$(PRIVATE_SUITE)$(if $(PRIVATE_FUNC),/$(PRIVATE_FUNC))/rootfs.tar.xz" "$@"; \
 fi
@@ -196,7 +213,7 @@ $(1)/rootfs.tar.xz: PRIVATE_MIRROR := $(call get-part,$(1),mirror)
 $(1)/rootfs.tar.xz: PRIVATE_DEBUERREOTYPE_ARCH := $(call debuerreotype-arch-name,$(4))
 $(1)/rootfs.tar.xz: PRIVATE_ENVS := $(call get-part,$(1),envs)
 $(1)/rootfs.tar.xz: PRIVATE_DEBOOTSTRAP_ARGS := $(call get-part,$(1),debootstrap-args)
-$(1)/rootfs.tar.xz: $(if $(shell wget --quiet --spider "$(DEBUERREOTYPE_ARTIFACTS_URL)/dist-$(call debuerreotype-arch-name,$(4))/$(3)$(if $(5),/$(5))/rootfs.tar.xz" && echo yes),,$(3)/$(4)/debuerreotype/stamp)
+$(1)/rootfs.tar.xz: $(if $(call has-debuerreotype-prebuilt,$(3),$(4),$(5)),,$(3)/$(4)/debuerreotype/stamp)
 $(1)/rootfs.tar.xz:
 	$$(call do-rootfs-tarball)
 
