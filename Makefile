@@ -44,8 +44,8 @@ MKIMAGE ?= mkimage.sh
 MKIMAGE := $(shell readlink -f $(MKIMAGE))
 
 DEB_SYSTEM_ARCH := $(shell dpkg --print-architecture)
-QEMU_NATIVE_ARCHS := amd64-i386 arm-armel armel-arm arm-armhf armhf-arm armel-armhf armhf-armel i386-amd64 powerpc-ppc64 ppc64-powerpc sparc-sparc64 sparc64-sparc s390-s390x s390x-s390
-$(foreach arch,alpha arm armeb i386 m68k mips mipsel mips64el ppc64 sh4 sh4eb sparc sparc64 s390x,$(eval QEMU_ARCH_$(arch) := $(arch)))
+QEMU_NATIVE_ARCHS := amd64-i386 arm-armel armel-arm arm-armhf armhf-arm armel-armhf armhf-armel i386-amd64 powerpc-ppc64 ppc64-powerpc sparc-sparc64 sparc64-sparc s390-s390x s390x-s390 amd64-x32 x32-amd64
+$(foreach arch,alpha arm armeb hppa i386 m68k mips mipsel mips64el ppc64 sh4 sh4eb sparc sparc64 s390x,$(eval QEMU_ARCH_$(arch) := $(arch)))
 QEMU_ARCH_amd64 := x86_64
 QEMU_ARCH_armel := arm
 QEMU_ARCH_armhf := arm
