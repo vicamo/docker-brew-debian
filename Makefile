@@ -22,6 +22,7 @@ DEBUERREOTYPE_SERIAL := $(shell env TZ=UTC LC_ALL=C date --date "@$(DEB_SNAPSHOT
 DEBUERREOTYPE_ARCH_NAME_armel := arm32v5
 DEBUERREOTYPE_ARCH_NAME_armhf := arm32v7
 DEBUERREOTYPE_ARCH_NAME_arm64 := arm64v8
+DEBUERREOTYPE_ARCH_NAME_ppc64el := ppc64le
 
 # $(1): debian architecture name
 define debuerreotype-arch-name
