@@ -163,6 +163,12 @@ args=( --arch="$(PRIVATE_ARCH)" ); \
 if [ -n "$(call get-qemu-arch,$(DEB_SYSTEM_ARCH),$(PRIVATE_ARCH))" ]; then \
   args+=( --qemu ); \
 fi; \
+if [ "$(PRIVATE_MIRROR)" == "http://deb.debian.org/debian-ports" ]; then \
+  args+=( --ports ); \
+fi; \
+$(if $(PRIVATE_INCLUDE),args+=( --include $(PRIVATE_INCLUDE) );) \
+$(if $(PRIVATE_EXCLUDE),args+=( --exclude $(PRIVATE_EXCLUDE) );) \
+$(if $(PRIVATE_DEBOOTSTRAP_ARGS),args+=( $(PRIVATE_DEBOOTSTRAP_ARGS) );) \
 args+=( "$(@D)" ); \
 args+=( "$(PRIVATE_SUITE)" ); \
 args+=( "@$(DEB_SNAPSHOT_EPOCH)" ); \
@@ -179,8 +185,11 @@ define define-build-debuerreotype-rootfs-tarball-target
 $(1)/debuerreotype/stamp: PRIVATE_TARGET := $(2)
 $(1)/debuerreotype/stamp: PRIVATE_SUITE := $(3)
 $(1)/debuerreotype/stamp: PRIVATE_ARCH := $(4)
-$(1)/debuerreotype/stamp: PRIVATE_DEBUERREOTYPE_ARCH := $(call debuerreotype-arch-name,$(4))
 $(1)/debuerreotype/stamp: PRIVATE_ENVS := $(call get-part,$(1),envs)
+$(1)/debuerreotype/stamp: PRIVATE_INCLUDE := $(call get-part,$(1),include)
+$(1)/debuerreotype/stamp: PRIVATE_EXCLUDE := $(call get-part,$(1),exclude)
+$(1)/debuerreotype/stamp: PRIVATE_MIRROR := $(call get-part,$(1),mirror)
+$(1)/debuerreotype/stamp: PRIVATE_DEBOOTSTRAP_ARGS := $(call get-part,$(1),debootstrap-args)
 $(1)/debuerreotype/stamp:
 	$$(call do-debuerreotype-rootfs-tarball)
 
@@ -208,11 +217,7 @@ $(1)/rootfs.tar.xz: PRIVATE_PATH := $(1)
 $(1)/rootfs.tar.xz: PRIVATE_SUITE := $(3)
 $(1)/rootfs.tar.xz: PRIVATE_ARCH := $(4)
 $(1)/rootfs.tar.xz: PRIVATE_FUNC := $(5)
-$(1)/rootfs.tar.xz: PRIVATE_INCLUDE := $(call get-part,$(1),include)
-$(1)/rootfs.tar.xz: PRIVATE_MIRROR := $(call get-part,$(1),mirror)
 $(1)/rootfs.tar.xz: PRIVATE_DEBUERREOTYPE_ARCH := $(call debuerreotype-arch-name,$(4))
-$(1)/rootfs.tar.xz: PRIVATE_ENVS := $(call get-part,$(1),envs)
-$(1)/rootfs.tar.xz: PRIVATE_DEBOOTSTRAP_ARGS := $(call get-part,$(1),debootstrap-args)
 $(1)/rootfs.tar.xz: $(if $(call has-debuerreotype-prebuilt,$(3),$(4),$(5)),,$(3)/$(4)/debuerreotype/stamp)
 $(1)/rootfs.tar.xz:
 	$$(call do-rootfs-tarball)
@@ -229,8 +234,11 @@ if [ -n "$(FORCE)" -o -z "$$($(DOCKER) inspect $${target_tag} 2>/dev/null | grep
     staging_tag=$${target_tag}-staging; \
     $(DOCKER) build --tag $${staging_tag} $(PRIVATE_PATH); \
     cp $(PRIVATE_QEMU_SUITE)/$(DEB_SYSTEM_ARCH)/qemu/qemu-$(PRIVATE_QEMU_ARCH)-static $(PRIVATE_PATH); \
-    { echo "FROM $${staging_tag}"; echo "ADD qemu-$(PRIVATE_QEMU_ARCH)-static /usr/bin/qemu-$(PRIVATE_QEMU_ARCH)-static"; } | \
-      tee $(PRIVATE_PATH)/Dockerfile.real; \
+    { echo "FROM $${staging_tag}"; \
+      echo "ADD qemu-$(PRIVATE_QEMU_ARCH)-static /usr/bin/qemu-$(PRIVATE_QEMU_ARCH)-static"; \
+      $(foreach e,QEMU_CPU, \
+        $(if $(filter $(e)=%,$(PRIVATE_ENVS)),echo "ENV $(filter $(e)=%,$(PRIVATE_ENVS))";)) \
+    } | tee $(PRIVATE_PATH)/Dockerfile.real; \
     $(DOCKER) build --tag $${target_tag} --file $(PRIVATE_PATH)/Dockerfile.real $(PRIVATE_PATH); \
     $(DOCKER) rmi $${staging_tag}; \
     rm "$(PRIVATE_PATH)/Dockerfile.real" "$(PRIVATE_PATH)/qemu-$(PRIVATE_QEMU_ARCH)-static"; \
@@ -257,6 +265,7 @@ docker-build-$(2): PRIVATE_ARCH := $(4)
 docker-build-$(2): PRIVATE_FUNC := $(5)
 docker-build-$(2): PRIVATE_QEMU_SUITE := $(call get-qemu-suite,$(3))
 docker-build-$(2): PRIVATE_QEMU_ARCH := $(call maybe-qemu-arch,$(1))
+docker-build-$(2): PRIVATE_ENVS := $(call get-part,$(1),envs)
 docker-build-$(2): $(if $(call maybe-qemu-arch,$(1)),qemu-binary-$(call get-qemu-suite,$(3)))
 docker-build-$(2): $(call enumerate-build-dep-for-docker-build,$(1))
 	$$(call do-docker-build)
