@@ -103,7 +103,7 @@ branches:
   - master
 
 before_install:
-- docker run --rm --privileged vicamo/binfmt-qemu:latest
+- docker run --rm --privileged multiarch/qemu-user-static:register
 - cat /proc/sys/fs/binfmt_misc/qemu-*
 - sudo git clone --depth 1 -b ${DEBUERREOTYPE_VERSION} https://github.com/debuerreotype/debuerreotype.git "${TRAVIS_BUILD_DIR%${TRAVIS_REPO_SLUG}}/debuerreotype"
 - ln -sf "${TRAVIS_BUILD_DIR%${TRAVIS_REPO_SLUG}}/debuerreotype/build.sh" ./mkimage.sh
