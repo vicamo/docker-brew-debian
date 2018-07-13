@@ -103,6 +103,8 @@ branches:
   - master
 
 before_install:
+- sudo git clone --depth 1 -b for-upstream/update-mips-masks https://github.com/vicamo/multiarch_qemu-user-static.git "${TRAVIS_BUILD_DIR%${TRAVIS_REPO_SLUG}}"/qemu-user-static
+- docker build -t multiarch/qemu-user-static:register "${TRAVIS_BUILD_DIR%${TRAVIS_REPO_SLUG}}"/qemu-user-static/register
 - docker run --rm --privileged multiarch/qemu-user-static:register
 - cat /proc/sys/fs/binfmt_misc/qemu-*
 - sudo git clone --depth 1 -b ${DEBUERREOTYPE_VERSION} https://github.com/debuerreotype/debuerreotype.git "${TRAVIS_BUILD_DIR%${TRAVIS_REPO_SLUG}}/debuerreotype"
