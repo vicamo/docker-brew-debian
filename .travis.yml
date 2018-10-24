@@ -43,7 +43,6 @@ env:
   - VARIANT=sid-mips
   - VARIANT=sid-mips64el
   - VARIANT=sid-mipsel
-  - VARIANT=sid-powerpc
   - VARIANT=sid-powerpcspe
   - VARIANT=sid-ppc64
   - VARIANT=sid-ppc64el
@@ -86,6 +85,7 @@ matrix:
   - env: VARIANT=sid-kfreebsd-amd64
   - env: VARIANT=sid-kfreebsd-i386
   - env: VARIANT=sid-m68k
+  - env: VARIANT=sid-powerpc
   - env: VARIANT=sid-powerpcspe
   - env: VARIANT=sid-ppc64
   - env: VARIANT=sid-sh4
