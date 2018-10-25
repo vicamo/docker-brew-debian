@@ -88,6 +88,7 @@ matrix:
   - env: VARIANT=wheezy-kfreebsd-i386
   allow_failures:
   - env: VARIANT=sid-hppa
+  - env: VARIANT=sid-x32
   - env: VARIANT=wheezy-s390
   - env: VARIANT=wheezy-sparc
 

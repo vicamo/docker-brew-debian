@@ -1,3 +1,5 @@
 x32 has to be built on amd64 systems booted with kernel argument
 "syscall.x32=y" included. It works on travis try servers, but fails on
 generic debian installs.
+
+https://github.com/vicamo/docker-brew-debian/issues/36
