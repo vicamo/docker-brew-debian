@@ -162,6 +162,7 @@ mkdir -p "$(@D)"; \
 args=( --arch="$(PRIVATE_ARCH)" ); \
 if [ -n "$(call get-qemu-arch,$(DEB_SYSTEM_ARCH),$(PRIVATE_ARCH))" ]; then \
   args+=( --qemu ); \
+  args+=( --qemu-suite=$(call get-qemu-suite,$(PRIVATE_SUITE)) ); \
 fi; \
 if [ "$(PRIVATE_MIRROR)" == "http://deb.debian.org/debian-ports" ]; then \
   args+=( --ports ); \
