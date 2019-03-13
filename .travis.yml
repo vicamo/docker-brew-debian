@@ -98,7 +98,7 @@ branches:
   - master
 
 before_install:
-- docker run --rm --privileged vicamo/binfmt-qemu:bionic
+- docker run --rm --privileged vicamo/binfmt-qemu:disco
 - cat /proc/sys/fs/binfmt_misc/qemu-*
 - sudo git clone --depth 1 https://github.com/vicamo/docker_debuerreotype.git "${TRAVIS_BUILD_DIR%${TRAVIS_REPO_SLUG}}/debuerreotype"
 - ln -sf "${TRAVIS_BUILD_DIR%${TRAVIS_REPO_SLUG}}/debuerreotype/build.sh" ./mkimage.sh
