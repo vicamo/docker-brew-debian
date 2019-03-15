@@ -1,3 +1,4 @@
+dist: xenial
 sudo: required
 services:
 - docker
@@ -68,8 +69,8 @@ env:
   - VARIANT=wheezy-ia64
   - VARIANT=wheezy-kfreebsd-amd64
   - VARIANT=wheezy-kfreebsd-i386
-  - VARIANT=wheezy-mips
-  - VARIANT=wheezy-mipsel
+  - VARIANT=wheezy-mips TRAVIS_QEMU_SUITE=bionic
+  - VARIANT=wheezy-mipsel TRAVIS_QEMU_SUITE=bionic
   - VARIANT=wheezy-powerpc
   - VARIANT=wheezy-s390
   - VARIANT=wheezy-s390x
@@ -88,9 +89,7 @@ matrix:
   - env: VARIANT=wheezy-kfreebsd-amd64
   - env: VARIANT=wheezy-kfreebsd-i386
   allow_failures:
-  - env: VARIANT=sid-hppa
   - env: VARIANT=sid-riscv64
-  - env: VARIANT=sid-x32
   - env: VARIANT=wheezy-s390
   - env: VARIANT=wheezy-sparc
 
@@ -99,7 +98,7 @@ branches:
   - master
 
 before_install:
-- docker run --rm --privileged vicamo/binfmt-qemu:bionic
+- docker run --rm --privileged vicamo/binfmt-qemu:${TRAVIS_QEMU_SUITE:-disco}
 - cat /proc/sys/fs/binfmt_misc/qemu-*
 - sudo git clone --depth 1 https://github.com/vicamo/docker_debuerreotype.git "${TRAVIS_BUILD_DIR%${TRAVIS_REPO_SLUG}}/debuerreotype"
 - ln -sf "${TRAVIS_BUILD_DIR%${TRAVIS_REPO_SLUG}}/debuerreotype/build.sh" ./mkimage.sh
