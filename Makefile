@@ -56,6 +56,8 @@ QEMU_ARCH_powerpcspe := ppc
 QEMU_ARCH_ppc64el := ppc64le
 QEMU_SUITE_wheezy := stretch
 QEMU_SUITE_jessie := stretch
+TRAVIS_QEMU_SUITE_wheezy-mips := bionic
+TRAVIS_QEMU_SUITE_wheezy-mipsel := bionic
 
 # $(1): suite
 define get-qemu-suite
@@ -355,7 +357,7 @@ all: .travis.yml
 .travis.yml:
 	$(hide) TMP_TRAVIS=$$(mktemp); \
 	travisEnv=; \
-	$(foreach t,$(patsubst all-%,%,$(ALL_SUITE_ARCH_TARGETS)),travisEnv+='\n  - VARIANT=$(t)';) \
+	$(foreach t,$(patsubst all-%,%,$(ALL_SUITE_ARCH_TARGETS)),travisEnv+='\n  - VARIANT=$(t)$(if $(TRAVIS_QEMU_SUITE_$(t)), TRAVIS_QEMU_SUITE=$(TRAVIS_QEMU_SUITE_$(t)))';) \
 	awk -v 'RS=\n\n' '($$1 == "env:") { $$0 = substr($$0, 0, index($$0, "matrix:") + length("matrix:")) "'"$$travisEnv"'" } { printf "%s%s", $$0, RS }' "$@" > "$${TMP_TRAVIS}"; \
 	(diff -q "$@" "$${TMP_TRAVIS}" >/dev/null && rm -f "$${TMP_TRAVIS}") || mv "$${TMP_TRAVIS}" "$@"
 
