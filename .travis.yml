@@ -5,7 +5,7 @@ services:
 
 env:
   global:
-  - secure: "LI8wGYT9vDMFQTuU+4ZY4mYUpkvm1tIEp57Dx5/1nrasx7CGLV0NTWbIqd+zXWSVeREiWhP9prRdRSahrJxFGWhAmCnyZnnemhGjY18K7TD5YRk/pgK0EZIn465AoBEwo02nObKsEhyVDEhcIHJDrQW3NOKY72yO3FnS7V9rvb0="
+  - secure: "iLE1BTMWqLtO9wjd+ETB+0Qetvy0MiNLiosgt/Wy8+7HxxJ59RBuTlwrhSGIwYlmoAqu+I0vh/XXFlPjH3GXWegQ/8ZkBgg21HXxIsZ/5IZf9+lvfHPLNb1MuwCffXP98uMMYLEXtB8AV71P71Vmww9OiQIaA+Rhf3CoQot9MGk="
   matrix:
   - VARIANT=buster-amd64
   - VARIANT=buster-arm64
