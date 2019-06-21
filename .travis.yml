@@ -18,17 +18,9 @@ env:
   - VARIANT=buster-ppc64el
   - VARIANT=buster-s390x
   - VARIANT=jessie-amd64
-  - VARIANT=jessie-arm64
   - VARIANT=jessie-armel
   - VARIANT=jessie-armhf
   - VARIANT=jessie-i386
-  - VARIANT=jessie-kfreebsd-amd64
-  - VARIANT=jessie-kfreebsd-i386
-  - VARIANT=jessie-mips
-  - VARIANT=jessie-mipsel
-  - VARIANT=jessie-powerpc
-  - VARIANT=jessie-ppc64el
-  - VARIANT=jessie-s390x
   - VARIANT=sid-alpha
   - VARIANT=sid-amd64
   - VARIANT=sid-arm64
@@ -44,7 +36,6 @@ env:
   - VARIANT=sid-mips64el
   - VARIANT=sid-mipsel
   - VARIANT=sid-powerpc
-  - VARIANT=sid-powerpcspe
   - VARIANT=sid-ppc64
   - VARIANT=sid-ppc64el
   - VARIANT=sid-riscv64
@@ -63,35 +54,15 @@ env:
   - VARIANT=stretch-ppc64el
   - VARIANT=stretch-s390x
   - VARIANT=wheezy-amd64
-  - VARIANT=wheezy-armel
-  - VARIANT=wheezy-armhf
-  - VARIANT=wheezy-i386
-  - VARIANT=wheezy-ia64
-  - VARIANT=wheezy-kfreebsd-amd64
-  - VARIANT=wheezy-kfreebsd-i386
-  - VARIANT=wheezy-mips TRAVIS_QEMU_SUITE=bionic
-  - VARIANT=wheezy-mipsel TRAVIS_QEMU_SUITE=bionic
-  - VARIANT=wheezy-powerpc
-  - VARIANT=wheezy-s390
-  - VARIANT=wheezy-s390x
-  - VARIANT=wheezy-sparc
 
 matrix:
   fast_finish: true
   exclude:
-  - env: VARIANT=jessie-kfreebsd-amd64
-  - env: VARIANT=jessie-kfreebsd-i386
   - env: VARIANT=sid-hurd-i386
   - env: VARIANT=sid-kfreebsd-amd64
   - env: VARIANT=sid-kfreebsd-i386
   - env: VARIANT=sid-sparc64
-  - env: VARIANT=wheezy-ia64
-  - env: VARIANT=wheezy-kfreebsd-amd64
-  - env: VARIANT=wheezy-kfreebsd-i386
   allow_failures:
-  - env: VARIANT=sid-riscv64
-  - env: VARIANT=wheezy-s390
-  - env: VARIANT=wheezy-sparc
 
 branches:
   only:
