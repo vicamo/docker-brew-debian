@@ -44,7 +44,6 @@ env:
   - VARIANT=sid-mips64el
   - VARIANT=sid-mipsel
   - VARIANT=sid-powerpc
-  - VARIANT=sid-powerpcspe
   - VARIANT=sid-ppc64
   - VARIANT=sid-ppc64el
   - VARIANT=sid-riscv64
