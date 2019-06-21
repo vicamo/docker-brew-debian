@@ -18,17 +18,9 @@ env:
   - VARIANT=buster-ppc64el
   - VARIANT=buster-s390x
   - VARIANT=jessie-amd64
-  - VARIANT=jessie-arm64
   - VARIANT=jessie-armel
   - VARIANT=jessie-armhf
   - VARIANT=jessie-i386
-  - VARIANT=jessie-kfreebsd-amd64
-  - VARIANT=jessie-kfreebsd-i386
-  - VARIANT=jessie-mips
-  - VARIANT=jessie-mipsel
-  - VARIANT=jessie-powerpc
-  - VARIANT=jessie-ppc64el
-  - VARIANT=jessie-s390x
   - VARIANT=sid-alpha
   - VARIANT=sid-amd64
   - VARIANT=sid-arm64
@@ -78,8 +70,6 @@ env:
 matrix:
   fast_finish: true
   exclude:
-  - env: VARIANT=jessie-kfreebsd-amd64
-  - env: VARIANT=jessie-kfreebsd-i386
   - env: VARIANT=sid-hurd-i386
   - env: VARIANT=sid-kfreebsd-amd64
   - env: VARIANT=sid-kfreebsd-i386
