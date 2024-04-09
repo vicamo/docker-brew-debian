@@ -1,0 +1,123 @@
+name: Container Images
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  matrix:
+    name: Build Matrix
+    runs-on: ubuntu-latest
+    outputs:
+      full_json: ${{ steps.releases.outputs.json }}
+      codenames: ${{ steps.pp.outputs.codenames }}
+      codename_arch: ${{ steps.pp.outputs.codename_arch }}
+    steps:
+      - name: Releases Info
+        id: releases
+        uses: vicamo/actions-library/debian-releases@v1
+
+      - name: Post Processing
+        id: pp
+        env:
+          FULL_JSON: ${{ steps.releases.outputs.json }}
+        run: |
+          platforms='[
+            ["amd64", "linux/amd64"],
+            ["arm", "linux/arm"],
+            ["arm64", "linux/arm64/v8"],
+            ["armel", "linux/arm/v5"],
+            ["armhf", "linux/arm/v7"],
+            ["i386", "linux/386"],
+            ["loong64", "linux/loong64"],
+            ["mips64el", "linux/mips64le"],
+            ["ppc64el", "linux/ppc64le"],
+            ["riscv64", "linux/riscv64"],
+            ["s390x", "linux/s390x"],
+
+            ["mips", "linux/mips"],
+            ["mipsel", "linux/mipsle"],
+            ["powerpc", "linux/ppc"],
+            ["ppc64", "linux/ppc64"],
+            ["s390", "linux/s390"],
+            ["sparc", "linux/sparc"],
+            ["sparc64", "linux/sparc64"],
+            ["x32", "linux/amd64p32"],
+
+            ["alpha", "linux/alpha"],
+            ["hppa", "linux/hppa"],
+            ["m68k", "linux/m68k"],
+            ["sh4", "linux/sh4"]
+          ]'
+          disabled_codename='["experimental"]'
+          disabled_arches='["hurd-amd64", "hurd-i386", "ia64", "kfreebsd-amd64", "kfreebsd-i386", "loong64", "s390", "x32"]'
+          known_failures='[
+            ["sid", "sparc64", "https://github.com/vicamo/docker-brew-debian/issues/35"]
+          ]'
+
+          codenames="$(echo "${FULL_JSON}" |
+              jq -c -M 'map(select(.codename as $c |
+                                   '"${disabled_codename}"' |
+                                   index($c) == null)) |
+                        map(. as $s |
+                            $s.mirrors[0].pockets[$s.codename].architectures as $da |
+                            $s |
+                            {
+                              "distribution":.distribution,
+                              "codename":.codename,
+                              "suite":.suite,
+                              "active":.active,
+                              "architectures":(.architectures - '"${disabled_arches}"' |
+                                               map({
+                                                     "arch":.,
+                                                     "platform":(. as $arch |
+                                                                 '"${platforms}"' |
+                                                                 map(select(.[0] == $arch))[0][1]),
+                                                     "use_ports":(. as $arch |
+                                                                  $da |
+                                                                  index($arch) == null),
+                                                     "known_failure":(. as $arch |
+                                                                      '"${known_failures}"' |
+                                                                      map(select((.[0] == $s.codename) and (.[1] == $arch)) | .[2]) |
+                                                                      join(",")),
+                                                   }) |
+                                              tostring)
+                            })')"
+          echo "::group::Built JSON(codenames)"
+          echo "${codenames}" | jq
+          echo "::endgroup::"
+
+          echo "codenames=${codenames}" | tee -a "${GITHUB_OUTPUT}"
+
+  per-suite:
+    name: Per Suite
+    needs:
+      - matrix
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        include: ${{ fromJSON(needs.matrix.outputs.codenames) }}
+    uses: ./.github/workflows/per-suite.yml
+    secrets:
+      username: ${{ secrets.DOCKERHUB_USERNAME }}
+      password: ${{ secrets.DOCKERHUB_TOKEN }}
+    with:
+      distribution: ${{ matrix.distribution }}
+      codename: ${{ matrix.codename }}
+      suite: ${{ matrix.suite }}
+      active: ${{ matrix.active }}
+      architectures: ${{ matrix.architectures }}
+      repository: 'vicamo/debian'
+      dry_run: ${{ github.ref_name != 'main' }}

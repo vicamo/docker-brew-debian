@@ -1,0 +1,253 @@
+---
+name: Build Suite
+on:
+  workflow_call:
+    inputs:
+      distribution:
+        description: 'Distribution name, e.g. debian.'
+        type: string
+        required: true
+      codename:
+        description: 'Debian codename.'
+        type: string
+        required: true
+      suite:
+        description: 'Debian suite.'
+        type: string
+        required: true
+      active:
+        description: 'Use default/archive apt mirror.'
+        type: boolean
+        required: true
+      architectures:
+        description: 'Architectures in JSON array'
+        type: string
+        required: true
+      repository:
+        description: 'Target docker repository'
+        type: string
+        required: true
+      dry_run:
+        description: 'Do not push to registry'
+        type: boolean
+        default: true
+    secrets:
+      username:
+        required: false
+      password:
+        required: false
+
+permissions:
+  contents: read
+
+env:
+  DISTRO: ${{ inputs.distribution }}
+  CODENAME: ${{ inputs.codename }}
+  SUITE: ${{ inputs.suite }}
+  ACTIVE: ${{ inputs.active && 'true' || '' }}
+  REPOSITORY: ${{ inputs.repository }}
+  DRY_RUN: ${{ inputs.dry_run && 'true' || '' }}
+
+jobs:
+  per-arch:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(inputs.architectures) }}
+    env:
+      ARCH: ${{ matrix.arch }}
+      PLATFORM: ${{ matrix.platform }}
+      USE_PORTS: ${{ matrix.use_ports && 'true' || 'false' }}
+      KNOWN_FAILURE: ${{ matrix.known_failure }}
+    steps:
+      - # Add support for more platforms with QEMU (optional)
+        name: Set up QEMU
+        if: matrix.arch != 'amd64' && matrix.arch != 'i386'
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -yq binfmt-support qemu-user-static
+          ls -al /proc/sys/fs/binfmt_misc
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          version: v0.12.0
+
+      - name: Checkout Debuerreotype
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          repository: debuerreotype/debuerreotype
+          ref: master
+          path: debuerreotype
+
+      - name: Debuerreotype
+        id: debuerreotype
+        working-directory: debuerreotype
+        continue-on-error: ${{ matrix.known_failure != '' }}
+        run: |
+          # Allow building debian experimental
+          echo "RUN ln -s sid /usr/share/debootstrap/scripts/experimental" >> Dockerfile
+
+          # Use the snapshot from yesterday to preven under sync.
+          epoch="$(TZ=UTC date --date yesterday +%s)"
+          serial="$(TZ=UTC date --date "@$epoch" +%Y%m%d)"
+
+          mkdir output
+          output_dir="output/${serial}/${ARCH}/${CODENAME}"
+
+          args=()
+          [ -n "${ACTIVE}" ] || args+=('--eol')
+          [ "${USE_PORTS}" == 'false' ] || args+=('--ports')
+          args+=(--arch "${ARCH}")
+
+          ret=0
+          ./docker-run.sh "./examples/${DISTRO}.sh" "${args[@]}" \
+              output "${CODENAME}" "@${epoch}" || ret=$?
+          if [[ ${ret} -eq 0 ]]; then
+            if [ -n "${KNOWN_FAILURE}" ]; then
+              echo "::error title=Expected failure succeeds::Expect ${DISTRO}/${CODENAME}:${ARCH} to fail but passed. See ${KNOWN_FAILURE}"
+            fi
+          else
+            if [ -n "${KNOWN_FAILURE}" ]; then
+              echo "::warning title=Expected failure::Expect ${DISTRO}/${CODENAME}:${ARCH} to fail. See ${KNOWN_FAILURE}"
+            else
+              echo "::error title=Unexpected failure::${DISTRO}/${CODENAME}:${ARCH} failed with ${ret}"
+            fi
+            exit ${ret}
+          fi
+
+          echo "output_dir=debuerreotype/${output_dir}" | tee -a "${GITHUB_OUTPUT}"
+
+      - uses: actions/upload-artifact@v4
+        if: ${{ steps.debuerreotype.outcome == 'success' }}
+        with:
+          name: ${{ env.CODENAME }}-${{ env.ARCH }}-rootfs
+          path: ${{ steps.debuerreotype.outputs.output_dir}}
+          retention-days: 1
+
+  merge:
+    runs-on: ubuntu-latest
+    needs:
+      - per-arch
+    env:
+      ARCHES: ${{ inputs.architectures }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: ${{ env.CODENAME }}-*
+
+      - # Add support for more platforms with QEMU (optional)
+        name: Set up QEMU
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -yq binfmt-support qemu-user-static
+          ls -al /proc/sys/fs/binfmt_misc
+
+      - id: platforms
+        run: |
+          platforms="$(echo "${ARCHES}" | jq -c -M 'map(.platform) | join(",")')"
+          echo "platforms=${platforms}" | tee -a "${GITHUB_OUTPUT}"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          platforms: ${{ steps.platforms.outputs.platforms }}
+
+      - name: Login to Docker Hub
+        if: ${{ !inputs.dry_run }}
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.username }}
+          password: ${{ secrets.password }}
+
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ inputs.repository }}
+
+      - name: Build images
+        run: |
+          load_or_push='--push'
+          [ -z "${DRY_RUN}" ] || load_or_push='--load'
+
+          annotations=()
+          while read -r line; do
+            annotations+=(--annotation "${line}")
+          done <<<"${DOCKER_METADATA_OUTPUT_ANNOTATIONS}"
+
+          labels=()
+          while read -r line; do
+            labels+=(--label "${line}")
+          done <<<"${DOCKER_METADATA_OUTPUT_LABELS}"
+
+          for flavor in "" slim; do
+            digests=()
+
+            while read -r arch platform known_failure; do
+              echo "::group::${CODENAME}-${arch}${flavor:+-${flavor}}"
+
+              context_dir="${CODENAME}-${arch}-rootfs${flavor:+/${flavor}}"
+              tag="${REPOSITORY}:${CODENAME}-${arch}${flavor:+-${flavor}}"
+              tags=(--tag "${tag}")
+              if [ -n "${SUITE}" ]; then
+                tags+=(--tag "${REPOSITORY}:${SUITE}-${arch}${flavor:+-${flavor}}")
+              fi
+
+              if ! (printf "FROM scratch\nADD rootfs.tar.xz /\nCMD [\"/bin/bash\"]" | \
+                  docker buildx build "${load_or_push}" \
+                      --platform "${platform}" \
+                      "${labels[@]}" "${tags[@]}" "${annotations[@]}" \
+                      --metadata-file "${context_dir}/docker.metadata" \
+                      --file - "${context_dir}"); then
+                digest=
+                if [ -z "${DRY_RUN}" ]; then
+                  # generate: linux/amd64:docker.io/library/ubuntu:noble@sha256:69ce9399...
+                  result="$(docker buildx imagetools inspect "${DISTRO}:${CODENAME}${flavor:+-${flavor}}" | \
+                      awk '/Name: +\S+@sha256:/ { digest=$2; getline; getline; platform=$2; print platform ":" digest}' | \
+                      grep "^${platform}:" || true)"
+                  if [ -z "${result}" ]; then
+                    result="$(docker buildx imagetools inspect "${REPOSITORY}:${CODENAME}${flavor:+-${flavor}}" | \
+                        awk '/Name: +\S+@sha256:/ { digest=$2; getline; getline; platform=$2; print platform ":" digest}' | \
+                        grep "^${platform}:" || true)"
+                    if [ -z "${result}" ]; then
+                      result="$(docker buildx imagetools inspect "${tag}" | \
+                          awk '/^Name:/ { name=$2; getline; getline; digest=$2; print "'"${platform}:"'" name "@" digest}' || true)"
+                    fi
+                  fi
+                  digest="${result#"${platform}":}"
+                fi
+
+                if [ -n "${digest}" ]; then
+                  digests+=("${digest}")
+                elif [ -z "${known_failure}" ]; then
+                  exit 1
+                fi
+              else
+                docker inspect "${tag}"
+                digests+=("$(jq -c -M -r '."containerimage.digest"' < "${context_dir}/docker.metadata")")
+              fi
+
+              echo "::endgroup::"
+            done < <(echo "${ARCHES}" | \
+                jq -r -c -M '.[] | .arch + " " + .platform + " " + .known_failure')
+
+            echo "::group::${CODENAME}${flavor:+-${flavor}}"
+
+            tag="${REPOSITORY}:${CODENAME}${flavor:+-${flavor}}"
+            tags=(--tag "${tag}")
+            if [ -n "${SUITE}" ]; then
+              tags+=(--tag "${REPOSITORY}:${SUITE}${flavor:+-${flavor}}")
+            fi
+
+            ${DRY_RUN:+echo} docker buildx imagetools create \
+                "${labels[@]}" "${tags[@]}" "${annotations[@]}" "${digests[@]}"
+
+            echo "::endgroup::"
+          done
+
+          echo "::group::docker images"
+          docker images
+          echo "::endgroup::"
