@@ -65,8 +65,10 @@ jobs:
         name: Set up QEMU
         if: matrix.arch != 'amd64' && matrix.arch != 'i386'
         run: |
+          echo "deb http://archive.ubuntu.com/ubuntu/ devel main universe" | \
+              sudo tee /etc/apt/sources.list.d/devel.list
           sudo apt-get update -q
-          sudo apt-get install -yq binfmt-support qemu-user-static
+          sudo apt-get install -yq binfmt-support qemu-user-static systemd
           ls -al /proc/sys/fs/binfmt_misc
 
       - name: Set up Docker Buildx
