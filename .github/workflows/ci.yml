@@ -66,6 +66,14 @@ jobs:
             ["sid", "loong64", "https://github.com/vicamo/docker-brew-debian/issues/52"],
             ["bullseye", "arm64", "https://github.com/vicamo/docker-brew-debian/issues/53"]
           ]'
+          pin_timestamp='[
+            ["buster", "armel", "2024/04/13 14:49:39"],
+            ["buster", "mips", "2024/04/13 14:49:39"],
+            ["buster", "mips64el", "2024/04/13 14:49:39"],
+            ["buster", "mipsel", "2024/04/13 14:49:39"],
+            ["buster", "ppc64el", "2024/04/13 14:49:39"],
+            ["buster", "s390x", "2024/04/13 14:49:39"]
+          ]'
 
           codenames="$(echo "${FULL_JSON}" |
               jq -c -M 'map(select(.codename as $c |
@@ -91,7 +99,11 @@ jobs:
                                                      "known_failure":(. as $arch |
                                                                       '"${known_failures}"' |
                                                                       map(select((.[0] == $s.codename) and (.[1] == $arch)) | .[2]) |
-                                                                      join(",")),
+                                                                      first),
+                                                     "timestamp":(. as $arch |
+                                                                  '"${pin_timestamp}"' |
+                                                                  map(select((.[0] == $s.codename) and (.[1] == $arch)) | .[2]) |
+                                                                  first),
                                                    }) |
                                               tostring)
                             })')"

@@ -60,6 +60,8 @@ jobs:
       PLATFORM: ${{ matrix.platform }}
       USE_PORTS: ${{ matrix.use_ports && 'true' || 'false' }}
       KNOWN_FAILURE: ${{ matrix.known_failure }}
+      # Use the snapshot from yesterday to preven under sync.
+      SNAPSHOT_DATE: ${{ matrix.timestamp || 'yesterday' }}
     steps:
       - # Add support for more platforms with QEMU (optional)
         name: Set up QEMU
@@ -92,8 +94,7 @@ jobs:
           # Allow building debian experimental
           echo "RUN ln -s sid /usr/share/debootstrap/scripts/experimental" >> Dockerfile
 
-          # Use the snapshot from yesterday to preven under sync.
-          epoch="$(TZ=UTC date --date yesterday +%s)"
+          epoch="$(TZ=UTC date --date "${SNAPSHOT_DATE}" +%s)"
           serial="$(TZ=UTC date --date "@$epoch" +%Y%m%d)"
 
           mkdir output
