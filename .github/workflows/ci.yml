@@ -24,7 +24,7 @@ permissions:
   contents: read
 
 env:
-  INCLUDE_EOL: ${{ inputs.include_eol && 'true' || '' }}
+  INCLUDE_EOL: 'true'
 
 jobs:
   matrix:
@@ -155,7 +155,7 @@ jobs:
         with:
           fetch-depth: 1
           repository: ${{ github.repository }}
-          ref: helper/20240509
+          ref: debuerreotype
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -173,6 +173,7 @@ jobs:
         with:
           name: debuerreotype
           path: /tmp/debuerreotype.tar
+          retention-days: 1
 
   per-suite:
     name: Per Suite
