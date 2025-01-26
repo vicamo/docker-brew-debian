@@ -155,7 +155,7 @@ jobs:
                                               tostring)
                             })')"
 
-          case "${{ inputs.wanted || 'active' }}" in
+          case "${{ inputs.wanted || 'all' }}" in
           all) ;;
           active)
             codenames="$(echo "${codenames}" | jq -c -M 'map(select(.active))')"
