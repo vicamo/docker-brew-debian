@@ -104,20 +104,7 @@ jobs:
             ["buster", "ppc64el", "2024/04/13 14:49:39"],
             ["buster", "s390x", "2024/04/13 14:49:39"]
           ]'
-          pin_qemu='[
-            ["any", "alpha", "deb"],
-            ["any", "hppa", "deb"],
-            ["any", "loong64", "deb"],
-            ["any", "m68k", "deb"],
-            ["any", "mips", "deb"],
-            ["any", "mips64el", "deb"],
-            ["any", "mipsel", "deb"],
-            ["any", "powerpc", "deb"],
-            ["any", "ppc64", "deb"],
-            ["any", "sh4", "deb"],
-            ["any", "sparc", "deb"],
-            ["any", "sparc64", "deb"]
-          ]'
+          pin_qemu='[]'
           include_pkgs='[
             ["sid", "loong64", "gpgv"],
             ["sid", "powerpc", "gpgv"],
@@ -168,7 +155,7 @@ jobs:
                                               tostring)
                             })')"
 
-          case "${{ inputs.wanted || 'active' }}" in
+          case "${{ inputs.wanted || 'all' }}" in
           all) ;;
           active)
             codenames="$(echo "${codenames}" | jq -c -M 'map(select(.active))')"
