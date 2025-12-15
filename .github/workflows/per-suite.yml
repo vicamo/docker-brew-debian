@@ -84,7 +84,7 @@ jobs:
         run: ls -al /proc/sys/fs/binfmt_misc
 
       - name: Download debuerreotype image tarball
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v7
         with:
           name: debuerreotype
           path: /tmp
@@ -165,7 +165,7 @@ jobs:
     env:
       ARCHES: ${{ inputs.architectures }}
     steps:
-      - uses: actions/download-artifact@v5
+      - uses: actions/download-artifact@v7
         with:
           pattern: ${{ env.CODENAME }}-*
 
