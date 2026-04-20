@@ -211,7 +211,7 @@ jobs:
           tags: local/debuerreotype:latest
 
       - name: Upload debuerreotype image tarball
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: debuerreotype
           path: /tmp/debuerreotype.tar
