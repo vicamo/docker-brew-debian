@@ -61,7 +61,7 @@ jobs:
       PLATFORM: ${{ matrix.platform }}
       USE_PORTS: ${{ matrix.use_ports && 'true' || 'false' }}
       KNOWN_FAILURE: ${{ matrix.known_failure }}
-      # Use the snapshot from yesterday to preven under sync.
+      # Use the snapshot from yesterday to prevent under sync.
       SNAPSHOT_DATE: ${{ matrix.timestamp || 'yesterday' }}
       INCLUDE_PKGS: ${{ matrix.pkgs }}
     steps:
@@ -98,7 +98,7 @@ jobs:
         with:
           fetch-depth: 1
           repository: vicamo/docker_debuerreotype
-          ref: 20251021
+          ref: 20260609
           path: debuerreotype
 
       - name: Debuerreotype
