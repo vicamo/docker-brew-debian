@@ -151,7 +151,7 @@ jobs:
                   --file - "${{ steps.debuerreotype.outputs.output_dir}}"
           docker run --rm "${tag}" apt-get update
 
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@v7
         if: ${{ steps.debuerreotype.outcome == 'success' }}
         with:
           name: ${{ env.CODENAME }}-${{ env.ARCH }}-rootfs
