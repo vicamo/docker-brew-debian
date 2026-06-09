@@ -98,7 +98,7 @@ jobs:
         with:
           fetch-depth: 1
           repository: vicamo/docker_debuerreotype
-          ref: 20251021
+          ref: 20260609
           path: debuerreotype
 
       - name: Debuerreotype
