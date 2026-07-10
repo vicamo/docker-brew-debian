@@ -29,6 +29,7 @@ concurrency:
 
 permissions:
   contents: read
+  packages: write
 
 jobs:
   matrix:
@@ -229,15 +230,15 @@ jobs:
         include: ${{ fromJSON(needs.matrix.outputs.codenames) }}
     uses: ./.github/workflows/per-suite.yml
     secrets:
-      username: ${{ secrets.DOCKERHUB_USERNAME }}
-      password: ${{ secrets.DOCKERHUB_TOKEN }}
+      username: ${{ github.actor }}
+      password: ${{ secrets.GITHUB_TOKEN }}
     with:
       distribution: ${{ matrix.distribution }}
       codename: ${{ matrix.codename }}
       suite: ${{ matrix.suite }}
       active: ${{ matrix.active }}
       architectures: ${{ matrix.architectures }}
-      repository: 'vicamo/debian'
+      repository: 'ghcr.io/vicamo/debian'
       dry_run:
         ${{ github.ref_name != 'main' || (github.event_name ==
         'workflow_dispatch' && inputs.dry_run) }}
