@@ -42,6 +42,7 @@ permissions:
   packages: write
 
 env:
+  DEBUERREOTYPE_IMAGE: ghcr.io/vicamo/debuerreotype:0.18-dev-20260711
   DISTRO: ${{ inputs.distribution }}
   CODENAME: ${{ inputs.codename }}
   SUITE: ${{ inputs.suite }}
@@ -84,37 +85,18 @@ jobs:
       - name: Dump QEMU supportness
         run: ls -al /proc/sys/fs/binfmt_misc
 
-      - name: Download debuerreotype image tarball
-        uses: actions/download-artifact@v8
-        with:
-          name: debuerreotype
-          path: /tmp
-      - name: Load debuerreotype image
-        run: |
-          docker load --input /tmp/debuerreotype.tar
-          docker images -a
-
-      - name: Checkout Debuerreotype
-        uses: actions/checkout@v7
-        with:
-          fetch-depth: 1
-          repository: vicamo/docker_debuerreotype
-          ref: 20260710
-          path: debuerreotype
+      - name: Pull debuerreotype image
+        run: docker pull "${DEBUERREOTYPE_IMAGE}"
 
       - name: Debuerreotype
         id: debuerreotype
-        working-directory: debuerreotype
         continue-on-error: ${{ matrix.known_failure != '' }}
         timeout-minutes: 20
         run: |
-          # Allow building debian experimental
-          echo "RUN ln -s sid /usr/share/debootstrap/scripts/experimental" >> Dockerfile
-
           epoch="$(TZ=UTC date --date "${SNAPSHOT_DATE}" +%s)"
           serial="$(TZ=UTC date --date "@$epoch" +%Y%m%d)"
 
-          mkdir output
+          mkdir -p debuerreotype/output
           output_dir="output/${serial}/${ARCH}/${CODENAME}"
 
           args=()
@@ -124,9 +106,18 @@ jobs:
           args+=(--arch "${ARCH}")
 
           ret=0
-          ./docker-run.sh --no-build --image local/debuerreotype:latest \
-              "./examples/${DISTRO}.sh" "${args[@]}" \
-              output "${CODENAME}" "@${epoch}" || ret=$?
+          # Allow building debian experimental (symlink not in image)
+          docker run --rm --init \
+              --hostname debuerreotype \
+              --cap-add SYS_ADMIN --cap-drop SETFCAP \
+              --security-opt apparmor=unconfined \
+              --security-opt seccomp=unconfined \
+              --tmpfs /tmp:dev,exec,suid,noatime \
+              --env TMPDIR=/tmp --env http_proxy \
+              --mount "type=bind,src=$PWD/debuerreotype/output,dst=/output" \
+              "${DEBUERREOTYPE_IMAGE}" \
+              bash -ec 'ln -sf sid /usr/share/debootstrap/scripts/experimental; exec "$@"' \
+              -- "/opt/debuerreotype/examples/${DISTRO}.sh" "${args[@]}" /output "${CODENAME}" "@${epoch}" || ret=$?
           if [[ ${ret} -eq 0 ]]; then
             if [ -n "${KNOWN_FAILURE}" ]; then
               echo "::error title=Expected failure succeeds::Expect ${DISTRO}/${CODENAME}:${ARCH} to fail but passed. See ${KNOWN_FAILURE}"
