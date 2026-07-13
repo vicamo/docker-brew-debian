@@ -157,6 +157,8 @@ jobs:
     env:
       ARCHES: ${{ inputs.architectures }}
     steps:
+      - uses: actions/checkout@v4
+
       - uses: actions/download-artifact@v8
         with:
           pattern: ${{ env.CODENAME }}-*
@@ -196,109 +198,13 @@ jobs:
 
       - name: Build images
         run: |
-          load_or_push='--push'
-          [ -z "${DRY_RUN}" ] || load_or_push='--load'
+          args=()
+          [ -z "${SUITE}" ] || args+=(--suite "${SUITE}")
+          [ -z "${DRY_RUN}" ] || args+=(--dry-run)
+          [ -n "${DRY_RUN}" ] || args+=(--push)
+          while read -r arch known_failure; do
+            args+=(--arch "${arch}${known_failure:+:${known_failure}}")
+          done < <(echo "${ARCHES}" | \
+              jq -r -c -M '.[] | .arch + " " + .known_failure')
 
-          manifest_annotations=()
-          index_annotations=()
-          while read -r line; do
-            case "$line" in
-            manifest:*) manifest_annotations+=(--annotation "${line}") ;;
-            index:*)    index_annotations+=(--annotation "${line}") ;;
-            esac
-          done <<<"${DOCKER_METADATA_OUTPUT_ANNOTATIONS}"
-
-          labels=()
-          while read -r line; do
-            labels+=(--label "${line}")
-          done <<<"${DOCKER_METADATA_OUTPUT_LABELS}"
-
-          version=
-          for flavor in "" slim; do
-            digests=()
-
-            while read -r arch platform known_failure; do
-              echo "::group::${CODENAME}-${arch}${flavor:+-${flavor}}"
-
-              context_dir="${CODENAME}-${arch}-rootfs${flavor:+/${flavor}}"
-              tag="${REPOSITORY}:${CODENAME}-${arch}${flavor:+-${flavor}}"
-              tags=(--tag "${tag}")
-              if [ -n "${SUITE}" ]; then
-                tags+=(--tag "${REPOSITORY}:${SUITE}-${arch}${flavor:+-${flavor}}")
-                if [ "${SUITE}" = "stable" ]; then
-                  tags+=(--tag "${REPOSITORY}:latest-${arch}${flavor:+-${flavor}}")
-                fi
-              fi
-
-              if [ -z "${version}" ]; then
-                version=$(< "${context_dir}/rootfs.debian_version")
-              fi
-              if [[ "${version}" =~ [0-9]+\.[0-9]+ ]]; then
-                ver="${version}"
-                while [ -n "${ver}" ]; do
-                  tags+=(--tag "${REPOSITORY}:${ver}-${arch}${flavor:+-${flavor}}")
-
-                  [ "${ver}" != "${ver%.*}" ] || break
-                  ver="${ver%.*}"
-                done
-              fi
-
-              if ! (printf "FROM scratch\nADD rootfs.tar.xz /\nCMD [\"/bin/bash\"]" | \
-                  docker buildx build "${load_or_push}" \
-                      --platform "${platform}" \
-                      "${labels[@]}" "${tags[@]}" "${manifest_annotations[@]}" \
-                      --metadata-file "${context_dir}/docker.metadata" \
-                      --file - "${context_dir}"); then
-                digest=
-                if [ -z "${DRY_RUN}" ]; then
-                  # generate: linux/amd64:docker.io/library/ubuntu:noble@sha256:69ce9399...
-                  result="$(docker buildx imagetools inspect "${REPOSITORY}:${CODENAME}${flavor:+-${flavor}}" | \
-                      awk '/Name: +\S+@sha256:/ { digest=$2; getline; getline; platform=$2; print platform ":" digest}' | \
-                      grep "^${platform}:" || true)"
-                  digest="${result#"${platform}":}"
-                fi
-
-                if [ -n "${digest}" ]; then
-                  digests+=("${digest}")
-                elif [ -z "${known_failure}" ]; then
-                  exit 1
-                fi
-              else
-                cat "${context_dir}/docker.metadata"; echo
-                digests+=("$(jq -c -M -r '."containerimage.digest"' < "${context_dir}/docker.metadata")")
-              fi
-
-              echo "::endgroup::"
-            done < <(echo "${ARCHES}" | \
-                jq -r -c -M '.[] | .arch + " " + .platform + " " + .known_failure')
-
-            echo "::group::${CODENAME}${flavor:+-${flavor}}"
-
-            tag="${REPOSITORY}:${CODENAME}${flavor:+-${flavor}}"
-            tags=(--tag "${tag}")
-            if [ -n "${SUITE}" ]; then
-              tags+=(--tag "${REPOSITORY}:${SUITE}${flavor:+-${flavor}}")
-              if [ "${SUITE}" = "stable" ]; then
-                tags+=(--tag "${REPOSITORY}:latest${flavor:+-${flavor}}")
-              fi
-            fi
-
-            if [[ "${version}" =~ [0-9]+\.[0-9]+ ]]; then
-              ver="${version}"
-              while [ -n "${ver}" ]; do
-                tags+=(--tag "${REPOSITORY}:${ver}${flavor:+-${flavor}}")
-
-                [ "${ver}" != "${ver%.*}" ] || break
-                ver="${ver%.*}"
-              done
-            fi
-
-            ${DRY_RUN:+echo} docker buildx imagetools create \
-                "${tags[@]}" "${index_annotations[@]}" "${digests[@]}"
-
-            echo "::endgroup::"
-          done
-
-          echo "::group::docker images"
-          docker images
-          echo "::endgroup::"
+          scripts/merge-rootfs "${args[@]}" "${REPOSITORY}" "${CODENAME}"

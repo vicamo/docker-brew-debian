@@ -1,0 +1,287 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+    echo "Usage: $(basename "$0") [options] REPOSITORY CODENAME" >&2
+    echo "Options: --push, --dry-run, --suite SUITE," >&2
+    echo "     --arch ARCH[:may-fail], (repeatable, at least one required)" >&2
+    echo "     --manifest-annotation VAL, --index-annotation VAL," >&2
+    echo "     --label KEY=VAL" >&2
+    exit 1
+}
+
+# Debian arch → OCI platform mapping.
+arch_to_platform() {
+    case "$1" in
+    amd64) echo "linux/amd64" ;;
+    amd64v3) echo "linux/amd64/v3" ;;
+    arm) echo "linux/arm" ;;
+    arm64) echo "linux/arm64" ;;
+    armel) echo "linux/arm/v5" ;;
+    armhf) echo "linux/arm/v7" ;;
+    i386) echo "linux/386" ;;
+    loong64) echo "linux/loong64" ;;
+    mips64el) echo "linux/mips64le" ;;
+    ppc64el) echo "linux/ppc64le" ;;
+    riscv64) echo "linux/riscv64" ;;
+    s390x) echo "linux/s390x" ;;
+
+    mips) echo "linux/mips" ;;
+    mipsel) echo "linux/mipsle" ;;
+    powerpc) echo "linux/ppc" ;;
+    ppc64) echo "linux/ppc64" ;;
+    s390) echo "linux/s390" ;;
+    sparc) echo "linux/sparc" ;;
+    sparc64) echo "linux/sparc64" ;;
+    x32) echo "linux/amd64p32" ;;
+
+    alpha) echo "linux/alpha" ;;
+    hppa) echo "linux/hppa" ;;
+    lpia) echo "linux/386" ;;
+    m68k) echo "linux/m68k" ;;
+    sh4) echo "linux/sh4" ;;
+
+    *)
+        echo "unknown arch: $1" >&2
+        return 1
+        ;;
+    esac
+}
+
+push=
+dry_run=
+suite=
+manifest_annotations=()
+index_annotations=()
+labels=()
+cli_arches=()
+while [ $# -gt 0 ]; do
+    case "$1" in
+    --push)
+        push=--push
+        shift
+        ;;
+    --dry-run)
+        dry_run=true
+        shift
+        ;;
+    --suite)
+        suite="$2"
+        shift 2
+        ;;
+    --arch)
+        cli_arches+=("$2")
+        shift 2
+        ;;
+    --manifest-annotation)
+        manifest_annotations+=(--annotation "$2")
+        shift 2
+        ;;
+    --index-annotation)
+        index_annotations+=(--annotation "$2")
+        shift 2
+        ;;
+    --label)
+        labels+=(--label "$2")
+        shift 2
+        ;;
+    -*)
+        echo "unknown option: $1" >&2
+        usage
+        ;;
+    *) break ;;
+    esac
+done
+
+[ $# -eq 2 ] || usage
+[ ${#cli_arches[@]} -gt 0 ] || {
+    echo "error: at least one --arch required" >&2
+    usage
+}
+
+repository="$1"
+codename="$2"
+
+load_or_push="${push:---load}"
+
+# CI grouping helpers.
+if [ -n "${GITHUB_ACTIONS:-}" ]; then
+    group() { echo "::group::$*"; }
+    endgroup() { echo "::endgroup::"; }
+else
+    group() { echo "--- $* ---"; }
+    endgroup() { :; }
+fi
+
+# Env var fallback for annotations (docker/metadata-action sets these in CI).
+if [ ${#manifest_annotations[@]} -eq 0 ] && [ ${#index_annotations[@]} -eq 0 ]; then
+    while IFS= read -r line; do
+        [ -n "${line}" ] || continue
+        case "${line}" in
+        manifest:*) manifest_annotations+=(--annotation "${line}") ;;
+        index:*) index_annotations+=(--annotation "${line}") ;;
+        esac
+    done <<<"${DOCKER_METADATA_OUTPUT_ANNOTATIONS:-}"
+fi
+
+# Env var fallback for labels (docker/metadata-action sets these in CI).
+if [ ${#labels[@]} -eq 0 ]; then
+    while IFS= read -r line; do
+        [ -n "${line}" ] || continue
+        labels+=(--label "${line}")
+    done <<<"${DOCKER_METADATA_OUTPUT_LABELS:-}"
+fi
+
+# Generate OCI labels from git when still none and not in CI.
+generate_oci_metadata() {
+    local source url
+    source="$(git remote get-url origin 2>/dev/null || true)"
+    # Normalise git@github.com:user/repo.git → https://github.com/user/repo
+    case "${source}" in
+    git@*)
+        url="${source#git@}"
+        url="https://${url%%:*}/${url#*:}"
+        url="${url%.git}"
+        ;;
+    https://*) url="${source%.git}" ;;
+    *) return ;;
+    esac
+
+    local revision created license_label=()
+    revision="$(git rev-parse HEAD 2>/dev/null || echo unknown)"
+    created="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    if [ -e LICENSE ]; then
+        local license
+        license="$(head -5 LICENSE | tr '\n' ' ')"
+        case "${license}" in
+        *Apache*2.0*) license_label=(--label "org.opencontainers.image.licenses=Apache-2.0") ;;
+        *MIT*) license_label=(--label "org.opencontainers.image.licenses=MIT") ;;
+        esac
+    fi
+
+    if [ ${#labels[@]} -eq 0 ]; then
+        labels=(
+            --label "org.opencontainers.image.source=${url}"
+            --label "org.opencontainers.image.url=${url}"
+            --label "org.opencontainers.image.title=${url##*/}"
+            --label "org.opencontainers.image.description=debootstrap --variant=minbase"
+            --label "org.opencontainers.image.revision=${revision}"
+            --label "org.opencontainers.image.created=${created}"
+            "${license_label[@]}"
+        )
+    fi
+
+    if [ ${#manifest_annotations[@]} -eq 0 ] && [ ${#index_annotations[@]} -eq 0 ]; then
+        local -a oci=(
+            "org.opencontainers.image.source=${url}"
+            "org.opencontainers.image.url=${url}"
+            "org.opencontainers.image.title=${url##*/}"
+            "org.opencontainers.image.description=debootstrap --variant=minbase"
+            "org.opencontainers.image.revision=${revision}"
+            "org.opencontainers.image.created=${created}"
+        )
+        case "${license_label[*]:-}" in
+        *=*) oci+=("${license_label[1]}") ;;
+        esac
+        for kv in "${oci[@]}"; do
+            manifest_annotations+=(--annotation "manifest:${kv}")
+            index_annotations+=(--annotation "index:${kv}")
+        done
+    fi
+}
+generate_oci_metadata
+
+version=
+for flavor in "" slim; do
+    digests=()
+
+    for entry in "${cli_arches[@]}"; do
+        arch="${entry%%:*}"
+        known_failure="${entry#"${arch}"}"
+        known_failure="${known_failure#:}"
+        platform="$(arch_to_platform "${arch}")"
+
+        group "${codename}-${arch}${flavor:+-${flavor}}"
+
+        context_dir="${codename}-${arch}-rootfs${flavor:+/${flavor}}"
+        tag="${repository}:${codename}-${arch}${flavor:+-${flavor}}"
+        tags=(--tag "${tag}")
+        if [ -n "${suite}" ]; then
+            tags+=(--tag "${repository}:${suite}-${arch}${flavor:+-${flavor}}")
+            if [ "${suite}" = "stable" ]; then
+                tags+=(--tag "${repository}:latest-${arch}${flavor:+-${flavor}}")
+            fi
+        fi
+
+        if [ -z "${version}" ]; then
+            version=$(<"${context_dir}/rootfs.debian_version")
+        fi
+        if [[ "${version}" =~ [0-9]+\.[0-9]+ ]]; then
+            ver="${version}"
+            while [ -n "${ver}" ]; do
+                tags+=(--tag "${repository}:${ver}-${arch}${flavor:+-${flavor}}")
+
+                [ "${ver}" != "${ver%.*}" ] || break
+                ver="${ver%.*}"
+            done
+        fi
+
+        if ! (printf "FROM scratch\nADD rootfs.tar.xz /\nCMD [\"/bin/bash\"]" |
+            docker buildx build "${load_or_push}" \
+                --platform "${platform}" \
+                "${labels[@]}" "${tags[@]}" "${manifest_annotations[@]}" \
+                --metadata-file "${context_dir}/docker.metadata" \
+                --file - "${context_dir}"); then
+            digest=
+            if [ -n "${push}" ]; then
+                # Try to recover digest from an earlier push of the same codename tag.
+                result="$(docker buildx imagetools inspect "${repository}:${codename}${flavor:+-${flavor}}" |
+                    awk '/Name: +\S+@sha256:/ { digest=$2; getline; getline; platform=$2; print platform ":" digest}' |
+                    grep "^${platform}:" || true)"
+                digest="${result#"${platform}":}"
+            fi
+
+            if [ -n "${digest}" ]; then
+                digests+=("${digest}")
+            elif [ -z "${known_failure}" ]; then
+                exit 1
+            fi
+        else
+            cat "${context_dir}/docker.metadata"
+            echo
+            digests+=("$(jq -c -M -r '."containerimage.digest"' <"${context_dir}/docker.metadata")")
+        fi
+
+        endgroup
+    done
+
+    group "${codename}${flavor:+-${flavor}}"
+
+    tag="${repository}:${codename}${flavor:+-${flavor}}"
+    tags=(--tag "${tag}")
+    if [ -n "${suite}" ]; then
+        tags+=(--tag "${repository}:${suite}${flavor:+-${flavor}}")
+        if [ "${suite}" = "stable" ]; then
+            tags+=(--tag "${repository}:latest${flavor:+-${flavor}}")
+        fi
+    fi
+
+    if [[ "${version}" =~ [0-9]+\.[0-9]+ ]]; then
+        ver="${version}"
+        while [ -n "${ver}" ]; do
+            tags+=(--tag "${repository}:${ver}${flavor:+-${flavor}}")
+
+            [ "${ver}" != "${ver%.*}" ] || break
+            ver="${ver%.*}"
+        done
+    fi
+
+    ${dry_run:+echo} docker buildx imagetools create \
+        "${tags[@]}" "${index_annotations[@]}" "${digests[@]}"
+
+    endgroup
+done
+
+group "docker images"
+docker images
+endgroup
