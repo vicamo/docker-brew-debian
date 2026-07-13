@@ -51,6 +51,7 @@ jobs:
         run: |
           platforms='[
             ["amd64", "linux/amd64"],
+            ["amd64v3", "linux/amd64/v3"],
             ["arm", "linux/arm"],
             ["arm64", "linux/arm64"],
             ["armel", "linux/arm/v5"],
@@ -73,6 +74,7 @@ jobs:
 
             ["alpha", "linux/alpha"],
             ["hppa", "linux/hppa"],
+            ["lpia", "linux/386"],
             ["m68k", "linux/m68k"],
             ["sh4", "linux/sh4"]
           ]'
