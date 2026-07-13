@@ -87,9 +87,6 @@ jobs:
             "x32"
           ]'
           known_failures='[
-            ["forky", "armel", "https://github.com/vicamo/docker-brew-debian/issues/89"],
-            ["jessie", "arm64", "https://github.com/vicamo/docker-brew-debian/issues/80"],
-            ["jessie", "ppc64el", "https://github.com/vicamo/docker-brew-debian/issues/81"],
             ["etch", "m68k", "https://github.com/vicamo/docker-brew-debian/issues/82"],
             ["woody", "mips", "https://github.com/vicamo/docker-brew-debian/issues/84"],
             ["woody", "mipsel", "https://github.com/vicamo/docker-brew-debian/issues/84"],
@@ -198,7 +195,7 @@ jobs:
         with:
           fetch-depth: 1
           repository: vicamo/docker_debuerreotype
-          ref: 20260609
+          ref: 20260710
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
