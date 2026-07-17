@@ -1,0 +1,39 @@
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  pull-requests: write
+
+name: release-please
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: google-github-actions/release-please-action@v4
+        id: rp
+        with:
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+          config-file: .github/release-please/release-please-config.json
+          manifest-file: .github/release-please/.release-please-manifest.json
+
+      - uses: actions/checkout@v4
+        if: ${{ steps.rp.outputs.release_created }}
+
+      - name: Update major/minor tags
+        if: ${{ steps.rp.outputs.release_created }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "159864+github-actions.bot@users.noreply.github.com"
+
+          full_tag="${{ steps.rp.outputs.tag_name }}"
+          major_minor_tag="${full_tag%.*}"
+          major_tag="${major_minor_tag%.*}"
+          git tag -d "${major_tag}" "${major_minor_tag}" || true
+
+          git tag -a "${major_tag}" -m "Release ${major_tag}"
+          git tag -a "${major_minor_tag}" -m "Release ${major_minor_tag}"
+          git push -f origin "${major_tag}" "${major_minor_tag}"
