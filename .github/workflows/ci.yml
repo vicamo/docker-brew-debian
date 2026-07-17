@@ -4,6 +4,8 @@ on:
   pull_request:
     branches:
       - main
+    paths-ignore:
+      - 'README.md'
   push:
     branches:
       - main
@@ -39,6 +41,8 @@ jobs:
       full_json: ${{ steps.releases.outputs.json }}
       codenames: ${{ steps.pp.outputs.codenames }}
       codename_arch: ${{ steps.pp.outputs.codename_arch }}
+      disabled_codenames: ${{ steps.pp.outputs.disabled_codenames }}
+      disabled_arches: ${{ steps.pp.outputs.disabled_arches }}
     steps:
       - name: Releases Info
         id: releases
@@ -188,6 +192,8 @@ jobs:
           echo "::endgroup::"
 
           echo "codenames=${codenames}" | tee -a "${GITHUB_OUTPUT}"
+          echo "disabled_codenames=${disabled_codename}" | tee -a "${GITHUB_OUTPUT}"
+          echo "disabled_arches=$(echo "${disabled_arches}" | tr -d '\n')" | tee -a "${GITHUB_OUTPUT}"
 
   per-suite:
     name: Per Suite
@@ -212,3 +218,46 @@ jobs:
       dry_run:
         ${{ github.ref_name != 'main' || (github.event_name ==
         'workflow_dispatch' && inputs.dry_run) }}
+
+  update-readme:
+    name: Update README
+    needs:
+      - matrix
+      - per-suite
+    if: >-
+      always() && needs.matrix.result == 'success' && needs.per-suite.result !=
+      'cancelled' && github.event_name != 'pull_request' && !(github.event_name
+      == 'workflow_dispatch' && inputs.dry_run)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Generate table
+        env:
+          FULL_JSON: ${{ needs.matrix.outputs.full_json }}
+        run: |
+          python3 scripts/generate-readme-table.py \
+            --repository ghcr.io/vicamo/debian \
+            --disable-codename '${{ join(fromJSON(needs.matrix.outputs.disabled_codenames), ',') }}' \
+            --disable-architecture '${{ join(fromJSON(needs.matrix.outputs.disabled_arches), ',') }}' \
+            README.md
+
+      - name: Check for changes
+        id: diff
+        run: git diff --quiet README.md
+        continue-on-error: true
+
+      - name: Create Pull Request
+        if: steps.diff.outcome == 'failure'
+        uses: peter-evans/create-pull-request@v7
+        with:
+          commit-message: 'docs: update architecture support table'
+          branch: auto/readme-table
+          title: 'docs: update architecture support table'
+          body: |
+            Auto-generated architecture support table from CI.
+            Updated after workflow run.
+          delete-branch: true
