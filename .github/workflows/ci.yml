@@ -248,7 +248,9 @@ jobs:
       - name: Check for changes
         run: |
           if ! git diff --quiet --exit-code README.md; then
-              npx prettier --write README.md
+              pip install pre-commit
+              pre-commit install
+              pre-commit run --files README.md || true
           fi
 
       - name: Create Pull Request
