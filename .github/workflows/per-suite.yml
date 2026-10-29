@@ -133,6 +133,12 @@ jobs:
 
           echo "output_dir=debuerreotype/${output_dir}" | tee -a "${GITHUB_OUTPUT}"
 
+      - name: Set up Jinja2
+        if: ${{ steps.debuerreotype.outcome == 'success' }}
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -yq python3-jinja2
+
       - name: Load and test image
         if: ${{ steps.debuerreotype.outcome == 'success' }}
         run: |

@@ -1,2 +1,4 @@
 [MASTER]
 disable=C0103
+# Install missing dependencies into the Python environment running Pylint.
+init-hook='import importlib.util, subprocess, sys; importlib.util.find_spec("jinja2") or subprocess.check_call([sys.executable, "-m", "pip", "install", "--disable-pip-version-check", "Jinja2==3.1.6"]); importlib.invalidate_caches()'
