@@ -66,7 +66,10 @@ jobs:
       # Use the snapshot from yesterday to prevent under sync.
       SNAPSHOT_DATE: ${{ matrix.timestamp || 'yesterday' }}
       INCLUDE_PKGS: ${{ matrix.pkgs }}
+      HOTFIXES: ${{ matrix.hotfixes }}
     steps:
+      - uses: actions/checkout@v7
+
       - name: Set up QEMU (docker/setup-qemu-action)
         if: matrix.qemu == '' && matrix.arch != 'amd64' && matrix.arch != 'i386'
         uses: docker/setup-qemu-action@v4
@@ -105,6 +108,14 @@ jobs:
           [ -z "${INCLUDE_PKGS}" ] || args+=(--include "${INCLUDE_PKGS}")
           args+=(--arch "${ARCH}")
 
+          hotfix_env=()
+          case ",${HOTFIXES}," in
+          *,vdso-heap-collision,*)
+            # Keep QEMU's vDSO mapping away from the initial heap.
+            hotfix_env+=(--env QEMU_RESERVED_VA=1024G)
+            ;;
+          esac
+
           ret=0
           # Allow building debian experimental (symlink not in image)
           docker run --rm --init \
@@ -114,6 +125,7 @@ jobs:
               --security-opt seccomp=unconfined \
               --tmpfs /tmp:dev,exec,suid,noatime \
               --env TMPDIR=/tmp --env http_proxy \
+              "${hotfix_env[@]}" \
               --mount "type=bind,src=$PWD/debuerreotype/output,dst=/output" \
               "${DEBUERREOTYPE_IMAGE}" \
               bash -ec 'ln -sf sid /usr/share/debootstrap/scripts/experimental; exec "$@"' \
@@ -139,14 +151,22 @@ jobs:
           sudo apt-get update -q
           sudo apt-get install -yq python3-jinja2
 
+      - name: Generate Dockerfiles
+        if: ${{ steps.debuerreotype.outcome == 'success' }}
+        env:
+          OUTPUT_DIR: ${{ steps.debuerreotype.outputs.output_dir }}
+        run: |
+          /usr/bin/python3 scripts/generate-dockerfile.py \
+              --hotfixes "${HOTFIXES}" > "${OUTPUT_DIR}/Dockerfile"
+          cp "${OUTPUT_DIR}/Dockerfile" "${OUTPUT_DIR}/slim/Dockerfile"
+
       - name: Load and test image
         if: ${{ steps.debuerreotype.outcome == 'success' }}
         run: |
           tag="${REPOSITORY}:${CODENAME}-${ARCH}"
-          printf "FROM scratch\nADD rootfs.tar.xz /\nCMD [\"/bin/bash\"]" | \
-              docker buildx build --load --platform "${PLATFORM}" \
-                  --tag "${tag}" \
-                  --file - "${{ steps.debuerreotype.outputs.output_dir}}"
+          docker buildx build --load --platform "${PLATFORM}" \
+              --tag "${tag}" \
+              "${{ steps.debuerreotype.outputs.output_dir}}"
           docker run --rm "${tag}" apt-get update
 
       - uses: actions/upload-artifact@v7
