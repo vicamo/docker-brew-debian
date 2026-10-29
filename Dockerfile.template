@@ -1,0 +1,10 @@
+# checkov:skip=CKV_DOCKER_2:This base image has no application service to healthcheck.
+# checkov:skip=CKV_DOCKER_3:Downstream images need root to install packages and choose their runtime user.
+# checkov:skip=CKV_DOCKER_4:ADD must extract the rootfs archive into the scratch image.
+FROM scratch
+ADD rootfs.tar.xz /
+{% if "vdso-heap-collision" in hotfixes %}
+# Keep QEMU's vDSO mapping away from the initial heap.
+ENV QEMU_RESERVED_VA=1024G
+{% endif %}
+CMD ["/bin/bash"]

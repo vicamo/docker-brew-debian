@@ -12,3 +12,4 @@ repos:
     hooks:
       - id: pylint
         args: [--rcfile=.github/linters/.pylintrc]
+        additional_dependencies: [Jinja2==3.1.6]

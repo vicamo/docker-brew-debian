@@ -226,7 +226,14 @@ for flavor in "" slim; do
             done
         fi
 
-        if ! (printf "FROM scratch\nADD rootfs.tar.xz /\nCMD [\"/bin/bash\"]" |
+        # CI artifacts carry Dockerfiles with any suite/architecture hotfixes.
+        if ! ({
+            if [ -f "${context_dir}/Dockerfile" ]; then
+                cat "${context_dir}/Dockerfile"
+            else
+                printf "FROM scratch\nADD rootfs.tar.xz /\nCMD [\"/bin/bash\"]"
+            fi
+        } |
             docker buildx build "${load_or_push}" \
                 --platform "${platform}" \
                 "${labels[@]}" "${tags[@]}" "${manifest_annotations[@]}" \

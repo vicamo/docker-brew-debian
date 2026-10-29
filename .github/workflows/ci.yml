@@ -126,6 +126,10 @@ jobs:
             ["sid", "ppc64", "gpgv"],
             ["sid", "sparc64", "gpgv"]
           ]'
+          # https://github.com/vicamo/docker-brew-debian/pull/113
+          hotfixes='[
+            ["bullseye", "arm64", "vdso-heap-collision"]
+          ]'
 
           codenames="$(echo "${FULL_JSON}" |
               jq -c -M 'map(select(.codename as $c |
@@ -166,6 +170,10 @@ jobs:
                                                              '"${include_pkgs}"' |
                                                              map(select(((.[0] == $s.codename) and (.[1] == $arch))) | .[2]) |
                                                              first),
+                                                     "hotfixes":(. as $arch |
+                                                                 '"${hotfixes}"' |
+                                                                 map(select((.[0] == $s.codename) and (.[1] == $arch)) | .[2]) |
+                                                                 first // ""),
                                                    }) |
                                               tostring)
                             })')"
